@@ -4,3 +4,4 @@ requests>=2.31
 -e .
 pandas>=2.0
 numpy>=2.0
+pyarrow>=15
