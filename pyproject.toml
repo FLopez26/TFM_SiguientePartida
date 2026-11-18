@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "siguiente-partida"
+version = "0.0.1"
+description = "Utilidades genéricas del recomendador de juegos de mesa Siguiente Partida"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["siguiente_partida*"]
