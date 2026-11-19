@@ -45,16 +45,26 @@ log = logging.getLogger("gold")
 MIN_VAL_USUARIO = 10
 MIN_VAL_JUEGO = 5
 
-FUGA = ("COMMENT 'Calculada por BGG con todas las valoraciones, incluidas las de test: "
+FUGA = ("COMMENT 'FUGA: calculada por BGG con todas las valoraciones, incluidas las de test; "
         "no usar como rasgo de un modelo'")
-# Columnas de juego que no pueden entrar en ningún modelo (las importa la fase de ML)
-COLUMNAS_CON_FUGA = ["nota_media_bgg", "nota_bayes_bgg", "desv_nota_bgg", "n_valoraciones_bgg"]
+FUGA_POP = ("COMMENT 'FUGA de popularidad: la generan los mismos usuarios, también los de test; "
+            "no usar como rasgo de un modelo'")
+RANKS = ["rank_general", "rank_estrategia", "rank_abstractos", "rank_familiares",
+         "rank_tematicos", "rank_cartas_coleccionables", "rank_wargames", "rank_party",
+         "rank_infantiles"]
+# Columnas de juego que no pueden entrar en ningún modelo (las importa la fase de ML).
+# Siguen en la tabla porque la ficha del juego las muestra.
+COLUMNAS_CON_FUGA = [
+    "nota_media_bgg", "nota_bayes_bgg", "desv_nota_bgg", "n_valoraciones_bgg",  # notas
+    *RANKS,                                     # BGG los calcula con la nota bayesiana
+    "n_propietarios", "n_quieren", "n_deseados", "n_comentarios", "n_votos_peso",  # contadores
+]
 
 # --------------------------------------------------------------------------- definición de tablas
 # El orden de las columnas es el de los CSV. Las claves primarias van en el CREATE; los
 # índices secundarios y las claves foráneas se añaden después de cargar (carga más rápida).
 TABLAS: dict[str, str] = {
-    "juego": f"""
+        "juego": f"""
         bgg_id                  INT NOT NULL,
         nombre                  VARCHAR(500) NULL,
         descripcion             MEDIUMTEXT NULL,
@@ -68,16 +78,16 @@ TABLAS: dict[str, str] = {
         edad_rec_comunidad      DOUBLE NULL,
         dependencia_idioma      DOUBLE NULL,
         mejor_n_jugadores       INT NULL COMMENT 'Nulo en ~91 % de los juegos',
-        n_propietarios          INT NULL,
-        n_quieren               INT NULL,
-        n_deseados              INT NULL,
-        n_votos_peso            INT NULL,
+        n_propietarios          INT NULL {FUGA_POP},
+        n_quieren               INT NULL {FUGA_POP},
+        n_deseados              INT NULL {FUGA_POP},
+        n_votos_peso            INT NULL {FUGA_POP},
         duracion_fabricante     INT NULL COMMENT 'Minutos',
         duracion_min_comunidad  INT NULL COMMENT 'Minutos',
         duracion_max_comunidad  INT NULL COMMENT 'Minutos',
         edad_min_fabricante     INT NULL,
         n_valoraciones_bgg      INT NULL {FUGA},
-        n_comentarios           INT NULL,
+        n_comentarios           INT NULL {FUGA_POP},
         n_nombres_alternativos  INT NULL,
         n_expansiones           INT NULL,
         n_reimplementaciones    INT NULL,
@@ -85,15 +95,15 @@ TABLAS: dict[str, str] = {
         familia                 VARCHAR(500) NULL,
         kickstarter             BOOLEAN NOT NULL,
         imagen_url              VARCHAR(1000) NULL,
-        rank_general            INT NULL,
-        rank_estrategia         INT NULL,
-        rank_abstractos         INT NULL,
-        rank_familiares         INT NULL,
-        rank_tematicos          INT NULL,
-        rank_cartas_coleccionables INT NULL,
-        rank_wargames           INT NULL,
-        rank_party              INT NULL,
-        rank_infantiles         INT NULL,
+        rank_general            INT NULL {FUGA},
+        rank_estrategia         INT NULL {FUGA},
+        rank_abstractos         INT NULL {FUGA},
+        rank_familiares         INT NULL {FUGA},
+        rank_tematicos          INT NULL {FUGA},
+        rank_cartas_coleccionables INT NULL {FUGA},
+        rank_wargames           INT NULL {FUGA},
+        rank_party              INT NULL {FUGA},
+        rank_infantiles         INT NULL {FUGA},
         PRIMARY KEY (bgg_id)""",
     "etiqueta": """
         id_etiqueta  INT NOT NULL,
