@@ -13,3 +13,4 @@ ipykernel>=6.29
 scipy>=1.13
 pandas>=2.2
 scikit-learn>=1.5
+mlflow==3.18.0

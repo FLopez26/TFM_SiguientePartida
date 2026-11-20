@@ -11,7 +11,8 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
       - --local-infile=1                 
-      - --innodb-buffer-pool-size=1G   
+      - --innodb-buffer-pool-size=1G
+      - --skip-log-bin 
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
@@ -22,6 +23,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  
+  mlflow:
+    build: ./docker/mlflow
+    image: tfm-mlflow:3.18.0
+    container_name: tfm-mlflow
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy 
+    command:
+      - mlflow
+      - server
+      - --host=0.0.0.0
+      - --port=5000
+      - --backend-store-uri=mysql+pymysql://tfm:${MYSQL_PASSWORD}@mysql:3306/mlflow
+      - --artifacts-destination=/mlflow/artefactos
+      - --allowed-hosts=localhost:*,127.0.0.1:*,mlflow:*
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow_artefactos:/mlflow/artefactos
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s   
 
 volumes:
   mysql_data:
+  mlflow_artefactos:
