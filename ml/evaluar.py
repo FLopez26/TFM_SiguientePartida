@@ -1,7 +1,7 @@
 """Entrenar, comparar y elegir: validación y test, con cada ejecución registrada en MLflow.
 
 Fase 1, validación (experimento de MLflow "seleccion_en_validacion"):
-    las 18 variantes se entrenan con la parte de ajuste (64 %) y se miden en la de
+    las 20 variantes se entrenan con la parte de ajuste (64 %) y se miden en la de
     validación (16 %). De cada familia (popularidad, contenido, item-kNN) se elige la de
     mayor NDCG@10 (etiqueta elegida=si), y la mejor de las tres es la ganadora
     (etiqueta ganadora=si): la que irá a producción.
@@ -54,14 +54,14 @@ N_REMUESTRAS = 1000       # bootstrap
 EXPERIMENTO_VALIDACION = "seleccion_en_validacion"
 EXPERIMENTO_TEST = "evaluacion_en_test"
 FAMILIAS = ("popularidad", "contenido", "item_knn")
-VECINOS_KNN = (25, 50, 100, 200, 400)
+VECINOS_KNN = (10, 25, 50, 100, 200, 400)
 VECINOS_CONTENIDO = 100
 METRICAS = ("precision", "recall", "ndcg")
 
 
 # --------------------------------------------------------------------------- variantes
 def rejilla() -> list[dict]:
-    """Las 18 variantes que se comparan en validación."""
+    """Las 20 variantes que se comparan en validación."""
     variantes = [{"familia": "popularidad", "criterio": c} for c in ("valoraciones", "positivas")]
     variantes += [{"familia": "contenido", "rasgos": r, "variante": v, "vecinos": VECINOS_CONTENIDO}
                   for r in CONJUNTOS_RASGOS for v in VARIANTES]
@@ -133,7 +133,7 @@ def _f(x: float) -> str:
 # --------------------------------------------------------------------------- fase 1: validación
 def fase_validacion(datos: Valoraciones, rasgos: Rasgos, args,
                     contexto: dict) -> tuple[list[dict], dict]:
-    """Entrena y mide las 18 variantes. Devuelve (elegida de cada familia, ganadora)."""
+    """Entrena y mide las 20 variantes. Devuelve (elegida de cada familia, ganadora)."""
     inicio_fase = time.perf_counter()
     R = datos.matriz(AJUSTE)
     rel = datos.relevantes(VALIDACION)
@@ -185,10 +185,11 @@ def fase_validacion(datos: Valoraciones, rasgos: Rasgos, args,
         mejores.append(mejor)
         log.info("Validación: elegida de %-12s %s (NDCG@10 %s)", familia, nombre(mejor["spec"]),
                  _f(mejor["ndcg_10"]))
-        if familia == "item_knn" and mejor["spec"]["vecinos"] == max(VECINOS_KNN):
-            log.warning("Validación: el mejor item-kNN usa el máximo de vecinos probado (%d). "
-                        "Puede que más vecinos sea aún mejor: amplía VECINOS_KNN",
-                        max(VECINOS_KNN))
+        if familia == "item_knn" and mejor["spec"]["vecinos"] in (min(VECINOS_KNN),
+                                                                   max(VECINOS_KNN)):
+            log.warning("Validación: el mejor item-kNN usa %d vecinos, un extremo de los probados "
+                        "%s. Puede que fuera de ese rango sea aún mejor: amplía VECINOS_KNN",
+                        mejor["spec"]["vecinos"], VECINOS_KNN)
     ganadora = max(mejores, key=lambda r: r["ndcg_10"])
     cliente.set_tag(ganadora["run_id"], "ganadora", "si")
     log.info("Validación: GANADORA %s (NDCG@10 %s). Es la que irá a producción",
@@ -237,6 +238,14 @@ def fase_test(datos: Valoraciones, rasgos: Rasgos, elegidas: list[dict], ganador
     rel = datos.relevantes(TEST)
     filas = usuarios_a_evaluar(rel, args.usuarios)
     log.info("Test: inicio, %d modelos, %d usuarios evaluados", len(elegidas), len(filas))
+    # Techo: lo que sacaría una lista perfecta. Quien tiene menos de 10 relevantes reservados
+    # no puede llegar a precision@10 = 1 ni con la lista ideal
+    n_rel = np.diff(rel.indptr)[filas]
+    techo = {"precision_10_maxima": float(np.mean(np.minimum(n_rel, K) / K)),
+             "recall_10_maximo": float(np.mean(np.minimum(n_rel, K) / n_rel))}
+    log.info("Test: relevantes reservados por usuario: mediana %d; con lista perfecta, "
+             "precision@10 = %.3f y recall@10 = %.3f", np.median(n_rel),
+             techo["precision_10_maxima"], techo["recall_10_maximo"])
     mlflow.set_experiment(EXPERIMENTO_TEST)
     por_usuario_base = None
     resumen = []
@@ -249,7 +258,7 @@ def fase_test(datos: Valoraciones, rasgos: Rasgos, elegidas: list[dict], ganador
         M = np.vstack([m[c] for c in METRICAS])
         media, inf, sup = ic_bootstrap(M, N_REMUESTRAS, semilla=SEMILLA)
         metricas = {"cobertura": cobertura(top, datos.forma[1]), "usuarios_evaluados": len(filas),
-                    "segundos_ajuste": t_ajuste, "segundos_medida": t_medida}
+                    "segundos_ajuste": t_ajuste, "segundos_medida": t_medida, **techo}
         for i, c in enumerate(METRICAS):
             metricas |= {f"{c}_10": media[i], f"{c}_10_ic_inf": inf[i], f"{c}_10_ic_sup": sup[i]}
         if por_usuario_base is None:
