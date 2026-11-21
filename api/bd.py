@@ -7,8 +7,9 @@ conexión no elige ninguna base de datos por defecto.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends, Request
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Connection, Engine
 
@@ -39,3 +40,8 @@ def conexion(request: Request) -> Iterator[Connection]:
     """Dependencia de FastAPI: una conexión del pool para la petición, devuelta al terminar."""
     with request.app.state.motor.connect() as c:
         yield c
+
+
+
+# Para las rutas: def ruta(c: Conexion) recibe una conexión ya abierta
+Conexion = Annotated[Connection, Depends(conexion)]

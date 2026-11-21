@@ -18,7 +18,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from api import bd, modelo
+from api import bd, catalogo, modelo
 from api.config import ALIAS, LOGS, NOMBRE_REGISTRO, Ajustes, leer_ajustes
 from siguiente_partida import configurar_logging
 
@@ -86,6 +86,7 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
         return JSONResponse(status_code=503, content={"detail": "La base de datos no responde"})
 
     app.include_router(sistema)
+    app.include_router(catalogo.router)
     return app
 
 
