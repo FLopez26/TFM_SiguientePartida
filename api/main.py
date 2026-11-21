@@ -85,6 +85,7 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
         log.error("MySQL: %s %s: %s", request.method, request.url.path, exc.orig)
         return JSONResponse(status_code=503, content={"detail": "La base de datos no responde"})
 
+    app.include_router(sistema)
     app.include_router(catalogo.router)
     app.include_router(recomendaciones.router)
     return app
