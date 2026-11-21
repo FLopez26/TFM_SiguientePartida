@@ -10,6 +10,9 @@ usuario de BGG del conjunto de evaluación que para alguien de la app con su col
 
 Las puntuaciones solo sirven para ordenar los juegos de un mismo usuario: no son notas ni
 probabilidades, y no se pueden comparar entre usuarios.
+
+Un modelo entrenado se guarda con modelo.guardar(ruta) y se recupera con
+cargar_recomendador(ruta): un .npz con arrays de numpy,.
 """
 from __future__ import annotations
 
@@ -89,6 +92,21 @@ class Recomendador:
     def ajustar(self, R) -> "Recomendador":
         raise NotImplementedError
 
+    def _estado(self) -> dict:
+        raise NotImplementedError
+
+    def guardar(self, ruta, ids=None) -> None:
+        """Guarda el modelo entrenado en un .npz. ids: identificador de cada columna (juego)."""
+        if not hasattr(self, "n_juegos_"):
+            raise RuntimeError("el modelo no está ajustado: no hay nada que guardar")
+        estado = {"tipo": type(self).__name__, "n_juegos": self.n_juegos_,
+                  "desempate": self.desempate_, **self._estado()}
+        if ids is not None:
+            if len(ids) != self.n_juegos_:
+                raise ValueError("ids tiene que tener un valor por cada juego (columna)")
+            estado["ids"] = np.asarray(ids)
+        np.savez_compressed(ruta, **estado)
+
     def puntuar(self, R_usuarios) -> np.ndarray:
         raise NotImplementedError
 
@@ -145,6 +163,9 @@ class Popularidad(Recomendador):
         R = self._comprobar(R_usuarios)
         return np.tile(self.popularidad_, (R.shape[0], 1))
 
+    def _estado(self) -> dict:
+        return {"criterio": self.criterio, "umbral": self.umbral, "popularidad": self.popularidad_}
+
 
 class ItemKNN(Recomendador):
     """Vecinos por juego (item-kNN) con similitud coseno entre columnas de juegos.
@@ -199,6 +220,25 @@ class ItemKNN(Recomendador):
         X = transformar(self._comprobar(R_usuarios), self.variante)
         return (X @ self.matriz_vecinos()).toarray().astype(np.float64)
 
+    def explicar(self, R_usuario, juegos) -> np.ndarray:
+        """Para cada juego recomendado a UN usuario, el juego suyo que más aporta a su
+        puntuación ("porque tienes X"). -1 si ninguno aporta (p. ej., viene del desempate)."""
+        X = transformar(self._comprobar(R_usuario), self.variante)
+        if X.shape[0] != 1:
+            raise ValueError("explicar recibe las notas de un solo usuario")
+        juegos = np.asarray(juegos)
+        if X.nnz == 0 or len(juegos) == 0:
+            return np.full(len(juegos), -1)
+        aportes = self.matriz_vecinos()[X.indices][:, juegos].toarray() * X.data[:, None]
+        mejor = np.argmax(aportes, axis=0)
+        return np.where(aportes[mejor, np.arange(len(juegos))] > 0, X.indices[mejor], -1)
+
+    def _estado(self) -> dict:
+        # Solo los vecinos que se usan: para predecir no hacen falta los rasgos ni las notas
+        k = self.vecinos
+        return {"variante": self.variante, "vecinos": k,
+                "indices": self.indices_[:, :k], "similitudes": self.similitudes_[:, :k]}
+
 
 class PorContenido(ItemKNN):
     """Como ItemKNN, pero la similitud entre juegos sale de sus rasgos, no de las notas.
@@ -216,3 +256,25 @@ class PorContenido(ItemKNN):
         if self.rasgos.shape[0] != R.shape[1]:
             raise ValueError("rasgos tiene que tener una fila por cada juego (columna de R)")
         return vecinos_coseno(sparse.csr_matrix(self.rasgos).T, k, self.bloque)
+
+def cargar_recomendador(ruta) -> tuple[Recomendador, np.ndarray | None]:
+    """(modelo listo para recomendar, ids de los juegos o None) desde un .npz de guardar().
+
+    Un modelo PorContenido se recupera como ItemKNN: una vez calculados sus vecinos, recomienda
+    igual y ya no necesita los rasgos.
+    """
+    with np.load(ruta, allow_pickle=False) as e:
+        tipo = str(e["tipo"])
+        if tipo == "Popularidad":
+            modelo = Popularidad(str(e["criterio"]), float(e["umbral"]))
+            modelo.popularidad_ = e["popularidad"]
+        elif tipo in ("ItemKNN", "PorContenido"):
+            modelo = ItemKNN(int(e["vecinos"]), str(e["variante"]))
+            modelo.indices_, modelo.similitudes_ = e["indices"], e["similitudes"]
+            modelo._matrices = {}
+        else:
+            raise ValueError(f"tipo de modelo desconocido en {ruta}: {tipo}")
+        modelo.n_juegos_ = int(e["n_juegos"])
+        modelo.desempate_ = e["desempate"]
+        ids = e["ids"] if "ids" in e.files else None
+    return modelo, ids

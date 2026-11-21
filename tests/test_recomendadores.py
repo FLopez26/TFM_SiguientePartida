@@ -73,3 +73,27 @@ def test_sin_ajustar_o_con_otro_numero_de_juegos_falla():
         ItemKNN().puntuar(R)
     with pytest.raises(ValueError):
         ItemKNN(vecinos=2).ajustar(R).puntuar(R[:, :3])
+
+def test_guardar_y_cargar_recomienda_igual(tmp_path):
+    from siguiente_partida.recomendadores import cargar_recomendador
+    ids = np.array([101, 102, 103, 104, 105])
+    for modelo in (Popularidad("valoraciones"), ItemKNN(vecinos=2, variante="centrada"),
+                   PorContenido(sparse.eye(5, format="csr"), vecinos=2, variante="binaria")):
+        modelo.ajustar(R)
+        ruta = tmp_path / "modelo.npz"
+        modelo.guardar(ruta, ids=ids)
+        cargado, ids_cargados = cargar_recomendador(ruta)
+        assert (ids_cargados == ids).all()
+        a, b = modelo.recomendar(R, k=3), cargado.recomendar(R, k=3)
+        assert (a[0] == b[0]).all() and np.allclose(a[1], b[1])
+    with pytest.raises(RuntimeError):
+        ItemKNN().guardar(tmp_path / "vacio.npz")
+
+
+def test_explicar_da_el_juego_que_mas_aporta():
+    m = ItemKNN(vecinos=2, variante="binaria").ajustar(R)
+    usuario = sparse.csr_matrix(([9.0, 7.0], ([0, 0], [0, 2])), shape=(1, 5))
+    top, _ = m.recomendar(usuario, k=2)
+    porque = m.explicar(usuario, top[0])
+    # el 1 se recomienda por el 0 (mismos usuarios); el 3, por el 2
+    assert dict(zip(top[0].tolist(), porque.tolist())) == {1: 0, 3: 2}

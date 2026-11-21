@@ -185,11 +185,14 @@ def fase_validacion(datos: Valoraciones, rasgos: Rasgos, args,
         mejores.append(mejor)
         log.info("Validación: elegida de %-12s %s (NDCG@10 %s)", familia, nombre(mejor["spec"]),
                  _f(mejor["ndcg_10"]))
-        if familia == "item_knn" and mejor["spec"]["vecinos"] in (min(VECINOS_KNN),
-                                                                   max(VECINOS_KNN)):
-            log.warning("Validación: el mejor item-kNN usa %d vecinos, un extremo de los probados "
-                        "%s. Puede que fuera de ese rango sea aún mejor: amplía VECINOS_KNN",
-                        mejor["spec"]["vecinos"], VECINOS_KNN)
+        if familia == "item_knn" and mejor["spec"]["vecinos"] == max(VECINOS_KNN):
+            log.warning("Validación: el mejor item-kNN usa el máximo de vecinos probado (%d). "
+                        "Puede que más vecinos sea aún mejor: amplía VECINOS_KNN",
+                        max(VECINOS_KNN))
+        elif familia == "item_knn" and mejor["spec"]["vecinos"] == min(VECINOS_KNN):
+            log.info("Validación: el mejor item-kNN usa el mínimo probado (%d vecinos). Es un "
+                     "límite decidido: por debajo el NDCG apenas cambia y los usuarios con pocas "
+                     "notas se quedan sin candidatos (ver ml/README.md)", min(VECINOS_KNN))
     ganadora = max(mejores, key=lambda r: r["ndcg_10"])
     cliente.set_tag(ganadora["run_id"], "ganadora", "si")
     log.info("Validación: GANADORA %s (NDCG@10 %s). Es la que irá a producción",
