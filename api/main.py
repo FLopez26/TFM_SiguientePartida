@@ -27,6 +27,17 @@ log = logging.getLogger("api")
 sistema = APIRouter(tags=["sistema"])
 
 
+class SinSaludCorrecta(logging.Filter):
+    """Quita del registro las llamadas a /salud que responden 200. En Docker, el healthcheck la
+    llama cada 15 s y llenaría el fichero; las que fallan (503) sí se registran."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # uvicorn.access registra con args = (cliente, método, ruta, versión HTTP, estado)
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) == 5
+                    and args[2] == "/salud" and args[4] == 200)
+
+
 @sistema.get("/", include_in_schema=False)
 def raiz() -> RedirectResponse:
     return RedirectResponse("/docs")
@@ -93,6 +104,7 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
 
 def main() -> int:
     configurar_logging("api.log", carpeta=LOGS)
+    logging.getLogger("uvicorn.access").addFilter(SinSaludCorrecta())
     try:
         ajustes = leer_ajustes()
     except ValueError as e:

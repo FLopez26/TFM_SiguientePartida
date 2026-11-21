@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from contextlib import closing
 from types import SimpleNamespace
@@ -24,7 +25,7 @@ from sqlalchemy import create_engine, event
 
 from api import bd, modelo
 from api.config import Ajustes
-from api.main import crear_app
+from api.main import SinSaludCorrecta, crear_app
 from api.modelo import Recomendador
 from ml.modelo_mlflow import RecomendadorJuegos
 from siguiente_partida.recomendadores import ItemKNN
@@ -179,6 +180,30 @@ def test_sin_base_de_datos_da_503(tmp_path, recomendador, monkeypatch):
         assert c.get("/salud").json()["mysql"]["estado"] == "error"
         r = c.get("/juegos", params={"q": "catan"})
         assert r.status_code == 503 and r.json()["detail"] == "La base de datos no responde"
+
+
+
+def test_el_registro_omite_las_llamadas_correctas_a_salud():
+    def acceso(ruta: str, estado: int) -> logging.LogRecord:   # como lo registra uvicorn
+        return logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                                 ("127.0.0.1:5000", "GET", ruta, "1.1", estado), None)
+    filtro = SinSaludCorrecta()
+    assert not filtro.filter(acceso("/salud", 200))
+    assert filtro.filter(acceso("/salud", 503))
+    assert filtro.filter(acceso("/juegos", 200))
+
+
+
+def test_corrige_la_ruta_de_windows_del_codigo_del_modelo(tmp_path):
+    from mlflow.models import Model
+    mlmodel = Model()
+    mlmodel.add_flavor("python_function", loader_module="mlflow.pyfunc.loaders.code_model",
+                       model_code_path=r"E:\PROYECTOS\TFM_SiguientePartida\ml\modelo_mlflow.py")
+    mlmodel.save(str(tmp_path / "MLmodel"))
+    assert modelo.corregir_ruta_del_codigo(str(tmp_path))
+    pyfunc = Model.load(str(tmp_path)).flavors["python_function"]
+    assert pyfunc["model_code_path"] == "modelo_mlflow.py"
+    assert not modelo.corregir_ruta_del_codigo(str(tmp_path))
 
 
 # --------------------------------------------------------------------------- catálogo

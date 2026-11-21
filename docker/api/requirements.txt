@@ -1,0 +1,13 @@
+mlflow==3.18.0
+numpy==2.4.0
+scipy==1.18.1
+pandas==2.3.3
+siguiente-partida==0.1.0
+
+fastapi==0.165.0
+uvicorn==0.54.0
+sqlalchemy==2.1.9
+pymysql==1.2.4
+cryptography==50.0.2
+python-dotenv==1.2.4
+requests==2.34.2

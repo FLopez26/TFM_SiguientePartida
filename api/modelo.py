@@ -10,7 +10,9 @@ lo ejecuta al cargarlo. Por eso aquí hace falta la librería siguiente-partida 
 from __future__ import annotations
 
 import logging
+import ntpath
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 
@@ -23,6 +25,7 @@ import mlflow  # noqa: E402
 import pandas as pd  # noqa: E402
 import requests  # noqa: E402
 from mlflow.exceptions import MlflowException  # noqa: E402
+from mlflow.models import Model  # noqa: E402
 from mlflow.pyfunc import PyFuncModel  # noqa: E402
 from mlflow.tracking import MlflowClient  # noqa: E402
 
@@ -44,6 +47,20 @@ class Recomendador:
         return self.modelo.predict(coleccion, params={"k": k})
 
 
+def corregir_ruta_del_codigo(carpeta_modelo: str) -> bool:
+    """Deja el MLmodel descargado listo para cargarse en cualquier sistema. True si lo cambia.
+    """
+    mlmodel = Model.load(carpeta_modelo)
+    pyfunc = mlmodel.flavors.get("python_function", {})
+    ruta = pyfunc.get("model_code_path")
+    if not ruta or ntpath.basename(ruta) == ruta:   # ntpath corta por "\" y por "/"
+        return False
+    pyfunc["model_code_path"] = ntpath.basename(ruta)
+    mlmodel.save(os.path.join(carpeta_modelo, "MLmodel"))
+    log.info("Modelo: código en %s (en el MLmodel ponía %s)", pyfunc["model_code_path"], ruta)
+    return True
+
+
 def cargar(ajustes: Ajustes) -> Recomendador:
     inicio = time.perf_counter()
     uri = ajustes.mlflow_uri
@@ -61,7 +78,13 @@ def cargar(ajustes: Ajustes) -> Recomendador:
     except MlflowException:
         raise ValueError(f"MLflow no tiene el modelo {NOMBRE_REGISTRO} con el alias '{ALIAS}': "
                          "ejecuta python -m ml.produccion") from None
-    modelo = mlflow.pyfunc.load_model(f"models:/{NOMBRE_REGISTRO}/{version.version}")
+    # Se descarga primero para poder corregir el MLmodel antes de cargarlo. Al cargarlo, los
+    # vecinos pasan a memoria y la carpeta temporal ya no hace falta
+    with tempfile.TemporaryDirectory(prefix="modelo_", ignore_cleanup_errors=True) as tmp:
+        carpeta = mlflow.artifacts.download_artifacts(
+            artifact_uri=f"models:/{NOMBRE_REGISTRO}/{version.version}", dst_path=tmp)
+        corregir_ruta_del_codigo(carpeta)
+        modelo = mlflow.pyfunc.load_model(carpeta)
     rec = Recomendador(
         modelo=modelo,
         version=version.version,
