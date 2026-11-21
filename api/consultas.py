@@ -8,10 +8,13 @@ SQL; las f-strings de abajo solo insertan constantes de este fichero.
 """
 from __future__ import annotations
 
-from sqlalchemy import text
+from collections.abc import Iterable
+
+from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
-from api.esquemas import Etiqueta, EtiquetasJuego, FichaJuego, JuegoResumen, TipoEtiqueta
+from api.esquemas import (Etiqueta, EtiquetasJuego, FichaJuego, Filtros, JuegoResumen,
+                          TipoEtiqueta)
 
 URL_BGG = "https://boardgamegeek.com/boardgame/{}"
 COLUMNAS_FICHA = [
@@ -78,3 +81,66 @@ def listar_etiquetas(c: Connection, tipo: TipoEtiqueta | None = None) -> list[Et
         GROUP BY e.id_etiqueta, e.tipo, e.nombre
         ORDER BY e.tipo, n_juegos DESC, e.nombre"""), {"tipo": tipo})
     return [Etiqueta(**f._mapping) for f in filas]
+
+
+
+def resumenes(c: Connection, ids: Iterable[int]) -> dict[int, JuegoResumen]:
+    """Nombre, año e imagen de varios juegos de una vez: {bgg_id: resumen}."""
+    ids = sorted(set(ids))
+    if not ids:
+        return {}
+    consulta = text("SELECT bgg_id, nombre, anio, imagen_url FROM gold.juego "
+                    "WHERE bgg_id IN :ids").bindparams(bindparam("ids", expanding=True))
+    return {f.bgg_id: JuegoResumen(**f._mapping) for f in c.execute(consulta, {"ids": ids})}
+
+
+class EtiquetasDesconocidas(ValueError):
+    """Alguna id_etiqueta de los filtros no está en gold.etiqueta."""
+
+
+def candidatos(c: Connection, filtros: Filtros) -> set[int]:
+    """bgg_id de los juegos del catálogo que cumplen los filtros (ver Filtros en esquemas.py).
+
+    Jugadores: si hay votos de la comunidad (juego_jugadores), el número tiene que ser uno de
+    los recomendados; si no los hay, basta con que esté entre min_jugadores y max_jugadores.
+    Etiquetas: una condición por tipo; dentro de cada tipo basta con tener una de ellas.
+    Un dato vacío no cumple la condición (MySQL: NULL >= 2 no es verdadero).
+    """
+    condiciones: list[str] = []
+    params: dict = {}
+    if filtros.jugadores is not None:
+        condiciones.append("""(
+            EXISTS (SELECT 1 FROM gold.juego_jugadores jj
+                    WHERE jj.bgg_id = j.bgg_id AND jj.n_jugadores = :jugadores)
+            OR (NOT EXISTS (SELECT 1 FROM gold.juego_jugadores jj WHERE jj.bgg_id = j.bgg_id)
+                AND j.min_jugadores <= :jugadores AND j.max_jugadores >= :jugadores))""")
+        params["jugadores"] = filtros.jugadores
+    for campo, columna, operador in [("duracion_min", "duracion_fabricante", ">="),
+                                     ("duracion_max", "duracion_fabricante", "<="),
+                                     ("peso_min", "peso", ">="), ("peso_max", "peso", "<=")]:
+        if getattr(filtros, campo) is not None:
+            condiciones.append(f"j.{columna} {operador} :{campo}")
+            params[campo] = getattr(filtros, campo)
+
+    listas = []   # parámetros que son listas (IN): SQLAlchemy los expande en :p_1, :p_2...
+    if filtros.etiquetas:
+        consulta = text("SELECT id_etiqueta, tipo FROM gold.etiqueta WHERE id_etiqueta IN :ids"
+                        ).bindparams(bindparam("ids", expanding=True))
+        tipos = dict(c.execute(consulta, {"ids": sorted(set(filtros.etiquetas))}).all())
+        faltan = sorted(set(filtros.etiquetas) - tipos.keys())
+        if faltan:
+            raise EtiquetasDesconocidas(f"No existen las etiquetas {faltan}: mira /etiquetas")
+        por_tipo: dict[str, list[int]] = {}
+        for id_etiqueta, tipo in tipos.items():
+            por_tipo.setdefault(tipo, []).append(id_etiqueta)
+        for i, ids in enumerate(por_tipo.values()):
+            condiciones.append(f"EXISTS (SELECT 1 FROM gold.juego_etiqueta je WHERE "
+                               f"je.bgg_id = j.bgg_id AND je.id_etiqueta IN :etiquetas_{i})")
+            params[f"etiquetas_{i}"] = ids
+            listas.append(f"etiquetas_{i}")
+
+    sql = "SELECT j.bgg_id FROM gold.juego j"
+    if condiciones:
+        sql += " WHERE " + " AND ".join(condiciones)
+    consulta = text(sql).bindparams(*(bindparam(n, expanding=True) for n in listas))
+    return set(c.execute(consulta, params).scalars())

@@ -7,9 +7,9 @@ ningún modelo los usa.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 TipoEtiqueta = Literal["categoria", "subcategoria", "mecanica", "tema"]
 
@@ -55,3 +55,82 @@ class Etiqueta(BaseModel):
     tipo: TipoEtiqueta
     nombre: str
     n_juegos: int = Field(description="Juegos del catálogo con esta etiqueta")
+
+
+
+# --------------------------------------------------------------------------- recomendaciones
+# En las peticiones, extra="forbid": un campo mal escrito desde el frontal ("jugadore") da un
+# error 422 en vez de ignorarse en silencio.
+
+class JuegoColeccion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    bgg_id: int = Field(ge=1)
+    nota: float | None = Field(default=None, ge=1, le=10, description="Opcional")
+
+
+class Filtros(BaseModel):
+    """Filtros del cuestionario del modo regalo (y, en la fase 5, del chat). Todos opcionales.
+    Con un filtro puesto, los juegos que no tienen ese dato en Gold no pasan."""
+    model_config = ConfigDict(extra="forbid")
+    jugadores: int | None = Field(
+        default=None, ge=1, le=100,
+        description="Si la comunidad de BGG votó los números de jugadores del juego, tiene que "
+                    "ser uno de los recomendados; si no, basta con que esté entre el mínimo y "
+                    "el máximo de la caja")
+    duracion_min: int | None = Field(default=None, ge=1, description="Minutos (duracion_fabricante)")
+    duracion_max: int | None = Field(default=None, ge=1, description="Minutos (duracion_fabricante)")
+    peso_min: float | None = Field(default=None, ge=1, le=5, description="Complejidad de 1 a 5")
+    peso_max: float | None = Field(default=None, ge=1, le=5, description="Complejidad de 1 a 5")
+    etiquetas: list[int] = Field(
+        default_factory=list, max_length=50,
+        description="id_etiqueta de /etiquetas. Dentro de un mismo tipo basta con una (Fantasy o "
+                    "Science Fiction); de tipos distintos hacen falta todas (un tema y una mecánica)")
+
+    @model_validator(mode="after")
+    def _rangos(self) -> "Filtros":
+        for campo in ("duracion", "peso"):
+            minimo, maximo = getattr(self, f"{campo}_min"), getattr(self, f"{campo}_max")
+            if minimo is not None and maximo is not None and minimo > maximo:
+                raise ValueError(f"{campo}_min no puede ser mayor que {campo}_max")
+        return self
+
+    def hay_filtros(self) -> bool:
+        return any(v not in (None, []) for v in self.model_dump().values())
+
+
+class PeticionRecomendacion(BaseModel):
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{
+        "coleccion": [{"bgg_id": 13, "nota": 9}, {"bgg_id": 822, "nota": 8},
+                      {"bgg_id": 9209}, {"bgg_id": 30549}],
+        "excluir": [],
+        "filtros": {"jugadores": 2},
+        "k": 5,
+    }]})
+    coleccion: list[JuegoColeccion] = Field(
+        default_factory=list, max_length=5000,
+        description="Juegos de la persona. Vacía en el modo regalo: se recomiendan los más "
+                    "populares que cumplan los filtros")
+    excluir: list[Annotated[int, Field(ge=1)]] = Field(
+        default_factory=list, max_length=5000,
+        description="Juegos que no se recomiendan y no cuentan para el perfil (p. ej. los "
+                    "descartes). Si un juego está también en la colección, cuenta como excluido")
+    filtros: Filtros = Field(default_factory=Filtros)
+    k: int = Field(default=10, ge=1, le=50, description="Cuántos juegos recomendar")
+
+
+class Recomendacion(BaseModel):
+    posicion: int
+    juego: JuegoResumen
+    porque: JuegoResumen | None = Field(
+        description="El juego de la colección que más pesa en esta recomendación (\"porque "
+                    "tienes X\"); vacío si la recomendación sale de la popularidad")
+    puntuacion: float = Field(description="Solo sirve para ordenar: no es una nota")
+
+
+class RespuestaRecomendaciones(BaseModel):
+    recomendaciones: list[Recomendacion]
+    candidatos: int = Field(description="Juegos que cumplían los filtros y no estaban ni en la "
+                                        "colección ni en excluir")
+    ignorados: list[int] = Field(description="Juegos de la colección que el modelo no conoce (sin "
+                                             "valoraciones en Gold): no cuentan para el perfil")
+    modelo_version: str

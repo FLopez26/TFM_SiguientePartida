@@ -17,6 +17,7 @@ from dataclasses import dataclass
 # Antes de importar mlflow: sin estadísticas de uso ni mensajes en cada arranque
 os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
+os.environ.setdefault("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")   # sin barra al descargar
 
 import mlflow  # noqa: E402
 import pandas as pd  # noqa: E402
