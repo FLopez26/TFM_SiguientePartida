@@ -69,6 +69,7 @@ services:
       MYSQL_USER: tfm
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"   
     volumes:

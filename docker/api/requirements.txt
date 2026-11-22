@@ -9,5 +9,6 @@ uvicorn==0.54.0
 sqlalchemy==2.1.9
 pymysql==1.2.4
 cryptography==50.0.2
+pyjwt==2.15.1
 python-dotenv==1.2.4
 requests==2.34.2

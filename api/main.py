@@ -18,7 +18,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from api import bd, catalogo, modelo, recomendaciones
+from api import auth, bd, catalogo, modelo, recomendaciones
 from api.config import ALIAS, LOGS, NOMBRE_REGISTRO, Ajustes, leer_ajustes
 from siguiente_partida import configurar_logging
 
@@ -45,7 +45,8 @@ def raiz() -> RedirectResponse:
 
 @sistema.get("/salud")
 def salud(request: Request) -> JSONResponse:
-    """Estado de MySQL y del modelo. 200 si los dos están bien; 503 si falla alguno."""
+    """Estado de MySQL, del modelo y de las cuentas. 200 si MySQL y el modelo están bien; 503
+    si falla alguno de los dos."""
     try:
         mysql = {"estado": "ok", "juegos": bd.contar_juegos(request.app.state.motor)}
     except SQLAlchemyError as e:
@@ -56,9 +57,35 @@ def salud(request: Request) -> JSONResponse:
     else:
         mod = {"estado": "ok", "nombre": NOMBRE_REGISTRO, "alias": ALIAS,
                "version": rec.version, "variante": rec.variante, "juegos": len(rec.juegos)}
+    # Las cuentas no cambian el código de estado: sin ellas siguen el catálogo y el modo regalo
+    ver = request.app.state.verificador
+    cuentas = ({"estado": "ok", "proyecto_firebase": ver.proyecto} if ver is not None else
+               {"estado": "sin configurar", "detalle": "falta FIREBASE_PROJECT_ID o no es "
+                                                       "válido: mira logs/api.log"})
     ok = mysql["estado"] == "ok" and mod["estado"] == "ok"
     return JSONResponse(status_code=200 if ok else 503,
-                        content={"estado": "ok" if ok else "error", "mysql": mysql, "modelo": mod})
+                        content={"estado": "ok" if ok else "error", "mysql": mysql, "modelo": mod,
+                                 "cuentas": cuentas})
+
+def preparar_cuentas(ajustes: Ajustes) -> auth.VerificadorFirebase | None:
+    """Verificador de tokens de Firebase. Si falta el proyecto o no es válido, la API arranca
+    igual y las rutas de /cuenta responden 503. Si no hay conexión con Google, se reintenta en
+    la primera petición."""
+    if not ajustes.firebase_proyecto:
+        log.error("Cuentas: falta FIREBASE_PROJECT_ID en .env; las rutas de /cuenta darán 503")
+        return None
+    try:
+        verificador = auth.VerificadorFirebase(ajustes.firebase_proyecto)
+    except ValueError as e:
+        log.error("Cuentas: %s", e)
+        return None
+    log.info("Cuentas: tokens de Firebase del proyecto %s", verificador.proyecto)
+    try:
+        verificador.precargar()
+    except auth.ClavesNoDisponibles as e:
+        log.error("Cuentas: no se pueden descargar las claves públicas de Google (%s); se "
+                  "reintentará en la primera petición", e)
+    return verificador
 
 
 def crear_app(ajustes: Ajustes) -> FastAPI:
@@ -80,6 +107,7 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
             log.error("Modelo: %s", e)
         except Exception:
             log.exception("Modelo: error inesperado al cargarlo de MLflow")
+        app.state.verificador = preparar_cuentas(ajustes)
         yield
         app.state.motor.dispose()
         log.info("API: fin")

@@ -10,6 +10,8 @@ las pone docker-compose.yml, y load_dotenv no sobrescribe las que ya existen.
     MLFLOW_TRACKING_URI   http://localhost:5000 en local; http://mlflow:5000 dentro de Docker
     API_HOST              127.0.0.1: solo se puede llamar desde tu PC (0.0.0.0 dentro de Docker)
     API_PORT              8000
+    FIREBASE_PROJECT_ID   id del proyecto de Firebase (no es secreto). Sin él la API arranca,
+                          pero las rutas de /cuenta responden 503
 """
 from __future__ import annotations
 
@@ -38,6 +40,7 @@ class Ajustes:
     mlflow_uri: str
     host: str
     puerto: int
+    firebase_proyecto: str | None = None
 
 
 def leer_ajustes() -> Ajustes:
@@ -53,4 +56,5 @@ def leer_ajustes() -> Ajustes:
         mlflow_uri=os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000").rstrip("/"),
         host=os.environ.get("API_HOST", "127.0.0.1"),
         puerto=int(os.environ.get("API_PORT", "8000")),
+        firebase_proyecto=os.environ.get("FIREBASE_PROJECT_ID", "").strip() or None,
     )
