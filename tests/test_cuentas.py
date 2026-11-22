@@ -5,6 +5,8 @@
   restricciones de docker/mysql/init/02_app.sql.
 - Tokens: un verificador falso que entiende "google:<uid>:<nombre>" e "invitado:<uid>". La
   comprobación de los tokens de verdad está en test_auth.py.
+- Modelo: un espía que guarda lo que recibe y recomienda en un orden fijo. Aquí importa qué
+  le llega desde lo guardado en la cuenta; la calidad del modelo se prueba en test_api.py.
 - Interbloqueos: SQLite no los tiene, así que se simula el error 1213 de MySQL.
 
     python -m pytest tests/test_cuentas.py -q
@@ -14,6 +16,7 @@ from __future__ import annotations
 import sqlite3
 from contextlib import closing
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
@@ -25,8 +28,11 @@ from api.config import Ajustes
 from api.main import crear_app
 
 AJUSTES = Ajustes("bd-de-prueba", 3306, "tfm", "x", "http://mlflow-de-prueba", "127.0.0.1", 8000)
-JUEGOS = {13: "CATAN", 822: "Carcassonne", 9209: "Ticket to Ride", 30549: "Pandemic",
-          174430: "Gloomhaven"}
+# bgg_id: (nombre, peso)
+JUEGOS = {13: ("CATAN", 2.3), 822: ("Carcassonne", 1.9), 9209: ("Ticket to Ride", 1.8),
+          30549: ("Pandemic", 2.4), 174430: ("Gloomhaven", 3.9), 266192: ("Wingspan", 2.5),
+          68448: ("7 Wonders", 2.3), 36218: ("Dominion", 2.4), 230802: ("Azul", 1.8),
+          178900: ("Codenames", 1.3)}
 ESQUEMA_APP = """
 CREATE TABLE cuenta (
     id_cuenta       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +66,25 @@ class VerificadorFalso:
                        nombre_visible=None if invitado else (nombre or None))
 
 
+class RecomendadorEspia:
+    """Hace de modelo: guarda cada entrada y recomienda por un orden fijo de popularidad, con el
+    primer juego del perfil como "porque". Gloomhaven no lo conoce."""
+    version, variante = "7", "espia"
+    ORDEN = [13, 30549, 822, 68448, 36218, 9209, 266192, 230802, 178900]
+    juegos = frozenset(ORDEN)
+
+    def __init__(self):
+        self.entradas: list[pd.DataFrame] = []
+
+    def recomendar(self, datos: pd.DataFrame, k: int = 10) -> pd.DataFrame:
+        self.entradas.append(datos.copy())
+        perfil = datos.loc[~datos["excluir"], "bgg_id"].tolist()
+        top = [b for b in self.ORDEN if b not in set(datos["bgg_id"])][:k]
+        return pd.DataFrame({"posicion": range(1, len(top) + 1), "bgg_id": top,
+                             "puntuacion": [float(len(top) - i) for i in range(len(top))],
+                             "porque_bgg_id": [perfil[0] if perfil else -1] * len(top)})
+
+
 def como(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
@@ -73,8 +98,9 @@ def motor(tmp_path):
     gold, app = tmp_path / "gold.db", tmp_path / "app.db"
     with closing(sqlite3.connect(gold)) as con:
         con.execute("CREATE TABLE juego (bgg_id INTEGER PRIMARY KEY, nombre TEXT, anio INTEGER, "
-                    "imagen_url TEXT, n_valoraciones_bgg INTEGER)")
-        con.executemany("INSERT INTO juego VALUES (?, ?, 2000, NULL, 100)", JUEGOS.items())
+                    "imagen_url TEXT, n_valoraciones_bgg INTEGER, peso REAL)")
+        con.executemany("INSERT INTO juego VALUES (?, ?, 2000, NULL, 100, ?)",
+                        [(b, n, p) for b, (n, p) in JUEGOS.items()])
         con.commit()
     with closing(sqlite3.connect(app)) as con:
         con.executescript(ESQUEMA_APP)
@@ -88,9 +114,14 @@ def motor(tmp_path):
 
 
 @pytest.fixture
-def cliente(motor, monkeypatch):
+def espia():
+    return RecomendadorEspia()
+
+
+@pytest.fixture
+def cliente(motor, espia, monkeypatch):
     monkeypatch.setattr(bd, "crear_motor", lambda ajustes: motor)
-    monkeypatch.setattr(modelo, "cargar", lambda ajustes: None)   # aquí no hace falta el modelo
+    monkeypatch.setattr(modelo, "cargar", lambda ajustes: espia)
     with TestClient(crear_app(AJUSTES)) as c:
         c.app.state.verificador = VerificadorFalso()
         yield c
@@ -118,7 +149,7 @@ def juegos(cliente, quien=GOOGLE, **params) -> dict[int, tuple]:
 @pytest.mark.parametrize("metodo, ruta", [
     ("post", "/cuenta/sesion"), ("get", "/cuenta"), ("delete", "/cuenta"),
     ("post", "/cuenta/fusionar"), ("get", "/cuenta/juegos"), ("put", "/cuenta/juegos/13"),
-    ("delete", "/cuenta/juegos/13")])
+    ("delete", "/cuenta/juegos/13"), ("post", "/cuenta/recomendaciones")])
 def test_todas_las_rutas_piden_token(cliente, motor, metodo, ruta):
     assert cliente.request(metodo, ruta, json={}).status_code == 401
     assert cliente.request(metodo, ruta, json={}, headers=como("basura")).status_code == 401
@@ -314,6 +345,82 @@ def test_fusionar_con_cuentas_que_no_valen(cliente, motor, quien, token_invitado
     assert fusionar(cliente, quien, token_invitado).status_code == codigo
     assert consulta(motor, "SELECT COUNT(*) FROM app.cuenta_juego") == [(2,)]   # nada movido
 
+# --------------------------------------------------------------------------- para mí
+def para_mi(cliente, quien=GOOGLE, **cuerpo) -> dict:
+    r = cliente.post("/cuenta/recomendaciones", json=cuerpo, headers=quien)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def recomendados(respuesta: dict) -> list[int]:
+    return [x["juego"]["bgg_id"] for x in respuesta["recomendaciones"]]
+
+
+def guardar_listas(cliente):
+    guardar(cliente, 13, "coleccion", 9)
+    guardar(cliente, 822, "coleccion")
+    guardar(cliente, 9209, "deseo")
+    guardar(cliente, 30549, "descarte")
+
+
+def test_para_mi_usa_la_coleccion_y_evita_deseos_y_descartes(cliente, espia):
+    guardar_listas(cliente)
+    d = para_mi(cliente, k=50)
+    entrada = espia.entradas[-1]
+    perfil = entrada[~entrada["excluir"]]
+    assert dict(zip(perfil["bgg_id"], perfil["nota"].fillna(0), strict=True)) == {13: 9, 822: 0}
+    assert set(entrada.loc[entrada["excluir"], "bgg_id"]) == {9209, 30549}
+    assert set(recomendados(d)) == set(RecomendadorEspia.ORDEN) - {13, 822, 9209, 30549}
+    assert {x["porque"]["bgg_id"] for x in d["recomendaciones"]} <= {13, 822}
+
+
+def test_para_mi_da_lo_mismo_que_recomendaciones_con_esas_listas(cliente):
+    guardar_listas(cliente)
+    cuerpo = {"filtros": {"peso_max": 2.4}, "k": 5}
+    r = cliente.post("/recomendaciones", json={
+        **cuerpo, "coleccion": [{"bgg_id": 13, "nota": 9}, {"bgg_id": 822}],
+        "excluir": [9209, 30549]})
+    assert r.status_code == 200 and para_mi(cliente, **cuerpo) == r.json()
+
+
+def test_para_mi_sin_juegos_guardados_recomienda_por_popularidad(cliente):
+    d = para_mi(cliente, k=3)
+    assert recomendados(d) == RecomendadorEspia.ORDEN[:3]
+    assert all(x["porque"] is None for x in d["recomendaciones"])
+
+
+def test_para_mi_con_filtros(cliente):
+    guardar_listas(cliente)
+    d = para_mi(cliente, filtros={"peso_max": 2.0}, k=50)
+    assert set(recomendados(d)) == {230802, 178900}      # peso <= 2 y sin guardar
+
+
+def test_para_mi_juegos_que_el_modelo_no_conoce(cliente):
+    guardar(cliente, 174430, "coleccion", 8)
+    d = para_mi(cliente)
+    assert d["ignorados"] == [174430]
+    assert all(x["porque"] is None for x in d["recomendaciones"])
+
+
+def test_para_mi_solo_usa_los_juegos_de_esa_cuenta(cliente, espia):
+    guardar(cliente, 13, "coleccion", quien=INVITADO)
+    d = para_mi(cliente)
+    assert 13 not in espia.entradas[-1]["bgg_id"].tolist() and 13 in recomendados(d)
+
+
+def test_para_mi_sin_modelo_da_503(cliente):
+    cliente.app.state.recomendador = None
+    assert cliente.post("/cuenta/recomendaciones", json={}, headers=GOOGLE).status_code == 503
+
+
+@pytest.mark.parametrize("cuerpo", [
+    {"coleccion": [{"bgg_id": 13}]},       # la colección la pone la API
+    {"k": 0}, {"k": 51},
+    {"filtros": {"jugadore": 2}},
+])
+def test_para_mi_peticiones_invalidas_dan_422(cliente, cuerpo):
+    assert cliente.post("/cuenta/recomendaciones", json=cuerpo,
+                        headers=GOOGLE).status_code == 422
 
 # --------------------------------------------------------------------------- interbloqueos
 def error_mysql(codigo: int) -> OperationalError:

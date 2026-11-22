@@ -144,6 +144,14 @@ def leer_juegos(c: Connection, id_cuenta: int, lista: Lista | None = None,
                           actualizado_en=f.actualizado_en, juego=resumenes.get(f.bgg_id))
             for f in filas]
 
+def leer_perfil(c: Connection, id_cuenta: int) -> tuple[dict[int, float | None], set[int]]:
+    """Para el modo "para mí": la colección (bgg_id -> nota o None) y los juegos que no se
+    recomiendan ni cuentan para el perfil, que son los deseos y los descartes."""
+    filas = c.execute(text("SELECT bgg_id, lista, nota FROM app.cuenta_juego "
+                           "WHERE id_cuenta = :id"), {"id": id_cuenta}).all()
+    coleccion = {f.bgg_id: None if f.nota is None else float(f.nota)
+                 for f in filas if f.lista == "coleccion"}
+    return coleccion, {f.bgg_id for f in filas if f.lista != "coleccion"}
 
 def guardar_juego(c: Connection, id_cuenta: int, bgg_id: int, lista: Lista,
                   nota: float | None) -> None:

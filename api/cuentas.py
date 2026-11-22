@@ -12,6 +12,7 @@ sesión, para guardar el nombre, si es invitado y el último acceso.
     GET    /cuenta/juegos?lista=      juegos guardados
     PUT    /cuenta/juegos/{bgg_id}    guardar un juego en una lista (o moverlo de lista)
     DELETE /cuenta/juegos/{bgg_id}    quitarlo
+    POST   /cuenta/recomendaciones    modo "para mí" con lo guardado
 
 Paso de invitado a Google (lo decide el frontal según lo que responda Firebase):
     - enlazar funciona (linkWithPopup): el uid no cambia y basta con POST /cuenta/sesion con el
@@ -26,11 +27,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 
-from api import consultas_app
+from api import consultas_app, recomendaciones
 from api.auth import UsuarioActual, comprobar_token
 from api.bd import Conexion
 from api.esquemas import (Cuenta, GuardarJuego, JuegoGuardado, Lista, PeticionFusion,
-                          ResultadoFusion)
+                          PeticionParaMi, ResultadoFusion, RespuestaRecomendaciones)
 
 log = logging.getLogger("api.cuentas")
 
@@ -124,3 +125,16 @@ def quitar_juego(bgg_id: BggId, id_cuenta: IdCuenta, c: Conexion) -> Response:
     """Quita el juego de la lista en la que esté. Si no estaba guardado, no pasa nada."""
     consultas_app.escribir(c, lambda: consultas_app.quitar_juego(c, id_cuenta, bgg_id))
     return Response(status_code=204)
+
+@router.post("/recomendaciones", response_model=RespuestaRecomendaciones,
+             responses={503: {"description": "El modelo no está cargado o faltan las cuentas"}})
+def para_mi(peticion: PeticionParaMi, id_cuenta: IdCuenta, c: Conexion,
+            request: Request) -> RespuestaRecomendaciones:
+    """Modo "para mí": recomienda con la colección guardada (y sus notas). Los deseos y los
+    descartes no cuentan para el perfil y no se recomiendan. Da lo mismo que POST
+    /recomendaciones con esas listas en `coleccion` y `excluir`. Con la colección vacía salen
+    los más populares que cumplan los filtros."""
+    rec = recomendaciones.recomendador_cargado(request)
+    coleccion, fuera = consultas_app.leer_perfil(c, id_cuenta)
+    return recomendaciones.calcular(rec, c, coleccion, fuera, peticion.filtros, peticion.k,
+                                    modo=f"para mí, cuenta {id_cuenta}")

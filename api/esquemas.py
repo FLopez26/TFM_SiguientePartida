@@ -202,3 +202,11 @@ class ResultadoFusion(BaseModel):
     ya_estaban: int = Field(description="Juegos que la cuenta de Google ya tenía: se queda su "
                                         "dato y se descarta el del invitado")
     cuenta: Cuenta
+
+class PeticionParaMi(BaseModel):
+    """Cuerpo de POST /cuenta/recomendaciones. La colección (con sus notas) y los juegos que no
+    se recomiendan (deseos y descartes) los pone la API con lo que hay guardado en la cuenta."""
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [
+        {"filtros": {"jugadores": 2}, "k": 10}]})
+    filtros: Filtros = Field(default_factory=Filtros)
+    k: int = Field(default=10, ge=1, le=50, description="Cuántos juegos recomendar")
