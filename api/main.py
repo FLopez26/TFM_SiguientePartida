@@ -18,7 +18,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from api import auth, bd, catalogo, modelo, recomendaciones
+from api import auth, bd, catalogo, cuentas, modelo, recomendaciones
 from api.config import ALIAS, LOGS, NOMBRE_REGISTRO, Ajustes, leer_ajustes
 from siguiente_partida import configurar_logging
 
@@ -59,13 +59,13 @@ def salud(request: Request) -> JSONResponse:
                "version": rec.version, "variante": rec.variante, "juegos": len(rec.juegos)}
     # Las cuentas no cambian el código de estado: sin ellas siguen el catálogo y el modo regalo
     ver = request.app.state.verificador
-    cuentas = ({"estado": "ok", "proyecto_firebase": ver.proyecto} if ver is not None else
-               {"estado": "sin configurar", "detalle": "falta FIREBASE_PROJECT_ID o no es "
-                                                       "válido: mira logs/api.log"})
+    estado_cuentas = ({"estado": "ok", "proyecto_firebase": ver.proyecto} if ver is not None
+                      else {"estado": "sin configurar", "detalle": "falta FIREBASE_PROJECT_ID o "
+                                                                   "no es válido: mira logs/api.log"})
     ok = mysql["estado"] == "ok" and mod["estado"] == "ok"
     return JSONResponse(status_code=200 if ok else 503,
                         content={"estado": "ok" if ok else "error", "mysql": mysql, "modelo": mod,
-                                 "cuentas": cuentas})
+                                 "cuentas": estado_cuentas})
 
 def preparar_cuentas(ajustes: Ajustes) -> auth.VerificadorFirebase | None:
     """Verificador de tokens de Firebase. Si falta el proyecto o no es válido, la API arranca
@@ -127,6 +127,8 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
     app.include_router(sistema)
     app.include_router(catalogo.router)
     app.include_router(recomendaciones.router)
+    app.include_router(recomendaciones.router)
+    app.include_router(cuentas.router)
     return app
 
 

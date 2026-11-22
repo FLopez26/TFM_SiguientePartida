@@ -7,9 +7,11 @@ ningún modelo los usa.
 """
 from __future__ import annotations
 
+from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 TipoEtiqueta = Literal["categoria", "subcategoria", "mecanica", "tema"]
 
@@ -134,3 +136,69 @@ class RespuestaRecomendaciones(BaseModel):
     ignorados: list[int] = Field(description="Juegos de la colección que el modelo no conoce (sin "
                                              "valoraciones en Gold): no cuentan para el perfil")
     modelo_version: str
+
+# --------------------------------------------------------------------------- cuentas
+# Los nombres siguen el esquema app (docker/mysql/init/02_app.sql).
+
+Lista = Literal["coleccion", "deseo", "descarte"]
+
+
+class JuegosPorLista(BaseModel):
+    coleccion: int = 0
+    deseo: int = 0
+    descarte: int = 0
+
+
+class Cuenta(BaseModel):
+    nombre_visible: str | None = Field(description="El de Google; vacío en invitados")
+    es_invitado: bool
+    creada_en: datetime = Field(description="Hora del servidor de MySQL (UTC en Docker)")
+    juegos: JuegosPorLista = Field(description="Cuántos juegos hay en cada lista")
+
+
+class JuegoGuardado(BaseModel):
+    bgg_id: int
+    lista: Lista
+    nota: float | None = Field(description="Solo en la colección")
+    actualizado_en: datetime
+    juego: JuegoResumen | None = Field(
+        description="Vacío si el juego ya no está en el catálogo (Gold se ha regenerado)")
+
+
+class GuardarJuego(BaseModel):
+    """Cuerpo de PUT /cuenta/juegos/{bgg_id}: sustituye lo que hubiera guardado de ese juego.
+    Un juego está en una sola lista: guardarlo en otra lo mueve."""
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [
+        {"lista": "coleccion", "nota": 8.5}, {"lista": "deseo"}]})
+    lista: Lista
+    nota: float | None = Field(default=None, ge=1, le=10,
+                               description="Opcional y solo en la colección; se guarda con un "
+                                           "decimal (7,25 pasa a 7,3)")
+
+    @field_validator("nota")
+    @classmethod
+    def _un_decimal(cls, nota: float | None) -> float | None:
+        # Como DECIMAL(3,1) de MySQL (redondeo hacia arriba en el 5), pero igual en los tests
+        if nota is None:
+            return None
+        return float(Decimal(str(nota)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+
+    @model_validator(mode="after")
+    def _nota_solo_en_coleccion(self) -> "GuardarJuego":
+        if self.nota is not None and self.lista != "coleccion":
+            raise ValueError("la nota solo se guarda en los juegos de la colección")
+        return self
+
+
+class PeticionFusion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token_invitado: str = Field(min_length=1, max_length=4096,
+                                description="ID token del invitado, pedido antes de iniciar "
+                                            "sesión con Google")
+
+
+class ResultadoFusion(BaseModel):
+    movidos: int = Field(description="Juegos del invitado que pasan a la cuenta de Google")
+    ya_estaban: int = Field(description="Juegos que la cuenta de Google ya tenía: se queda su "
+                                        "dato y se descarta el del invitado")
+    cuenta: Cuenta
