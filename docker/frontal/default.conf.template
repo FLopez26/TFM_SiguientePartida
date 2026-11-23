@@ -1,0 +1,44 @@
+# Frontal de Siguiente Partida. Al arrancar el contenedor, nginx sustituye en esta plantilla las
+# variables de entorno que existen (FIREBASE_API_KEY y FIREBASE_PROJECT_ID, que llegan de .env a
+# través de docker-compose.yml) y la guarda como /etc/nginx/conf.d/default.conf.
+# Las variables propias de nginx ($uri, $host...) no se tocan porque no son variables de entorno.
+
+server {
+    listen 8080;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Archivos de la web. "no-cache": el navegador pregunta siempre si han cambiado, así que al
+    # reconstruir la imagen se ve la versión nueva sin vaciar la caché
+    location / {
+        try_files $uri $uri/ =404;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "same-origin" always;
+    }
+
+    # Configuración pública de Firebase para js/sesion.js. No es secreta: la recibe cualquier
+    # navegador que abra la web. Si falta en .env, sale vacía y la web avisa de que el inicio de
+    # sesión no está configurado
+    location = /config.js {
+        default_type application/javascript;
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        return 200 'export const firebaseConfig = {apiKey: "${FIREBASE_API_KEY}", authDomain: "${FIREBASE_PROJECT_ID}.firebaseapp.com", projectId: "${FIREBASE_PROJECT_ID}"};';
+    }
+
+    # La API va por la misma dirección que la web (/api/salud -> http://api:8000/salud), así que
+    # el navegador no necesita CORS. El nombre "api" se resuelve en cada petición con el DNS de
+    # Docker: el frontal arranca aunque la API aún no esté y sigue funcionando si se reinicia
+    location /api/ {
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $api http://api:8000;
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 60s;
+        client_max_body_size 1m;
+    }
+}

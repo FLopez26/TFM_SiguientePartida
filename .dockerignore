@@ -1,4 +1,6 @@
 *
 !api/
 !docker/api/requirements.txt
+!frontal/
+!docker/frontal/
 **/__pycache__

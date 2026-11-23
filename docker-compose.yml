@@ -81,6 +81,26 @@ services:
       retries: 5
       start_period: 60s
 
+  frontal:
+    build:
+      context: .
+      dockerfile: docker/frontal/Dockerfile
+    image: tfm-frontal
+    container_name: tfm-frontal
+    restart: unless-stopped
+    depends_on:
+      - api                              # solo el orden: nginx busca "api" en cada petición
+    environment:
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+    ports:
+      - "127.0.0.1:${FRONTAL_PORT:-8080}:8080"   # abrir en http://localhost:8080 
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   mysql_data:
   mlflow_artefactos:

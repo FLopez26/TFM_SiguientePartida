@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Siguiente Partida</title>
+  <link rel="stylesheet" href="css/estilos.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Siguiente Partida</h1>
+    <div id="cuenta" hidden>
+      <span id="nombre"></span>
+      <button id="boton-pasar-a-google" type="button" hidden>Guardar con Google</button>
+      <button id="boton-salir" type="button">Salir</button>
+    </div>
+  </header>
+
+  <p id="aviso" role="status" hidden></p>
+
+  <main>
+    <p id="cargando">Cargando…</p>
+
+    <section id="entrada" hidden>
+      <h2>Tu próximo juego de mesa, a partir de los que ya tienes</h2>
+      <div class="botones">
+        <button id="boton-google" type="button">Entrar con Google</button>
+        <button id="boton-invitado" type="button">Entrar como invitado</button>
+      </div>
+      <p class="nota">Como invitado, tu colección queda ligada a este navegador. Cuando quieras,
+        guárdala en tu cuenta de Google para no perderla.</p>
+    </section>
+
+    <section id="perfil" hidden>
+      <h2>Tu perfil</h2>
+      <p id="resumen"></p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,52 @@
+:root {
+  --fondo: #faf8f5;
+  --texto: #2b2620;
+  --suave: #6d655c;
+  --acento: #1f6f5c;
+  --error: #a33a2c;
+  --ok: #1f6f5c;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+body {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #e2ddd5;
+}
+
+h1 { font-size: 1.5rem; color: var(--acento); }
+h2 { font-size: 1.2rem; }
+
+#cuenta { display: flex; align-items: center; gap: 0.75rem; }
+#nombre { font-weight: 600; }
+
+.botones { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; }
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--acento);
+  border-radius: 0.4rem;
+  background: white;
+  color: var(--acento);
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--acento); color: white; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.nota { color: var(--suave); font-size: 0.9rem; max-width: 40rem; }
+
+#aviso { padding: 0.6rem 1rem; border-radius: 0.4rem; margin: 1rem 0; }
+#aviso.error { background: #fbeae7; color: var(--error); }
+#aviso.ok { background: #e6f2ee; color: var(--ok); }
