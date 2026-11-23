@@ -1,39 +1,14 @@
-// Página principal: entrada (Google o invitado) y cabecera de la cuenta.
-// El perfil con las listas y el modo "para mí" se añaden encima de esto.
+// Página principal: entrada (Google o invitado), cabecera de la cuenta y botones de la cuenta.
+// El perfil (búsqueda, listas y "para mí") está en perfil.js.
 
 import { api } from "./api.js";
+import * as perfil from "./perfil.js";
 import * as sesion from "./sesion.js";
+import { $, avisar, avisarError, conBoton } from "./ui.js";
 
 // Firebase solo admite localhost como dominio autorizado, no 127.0.0.1
 if (location.hostname === "127.0.0.1") {
   location.replace(location.href.replace("127.0.0.1", "localhost"));
-}
-
-const $ = (id) => document.getElementById(id);
-
-// --------------------------------------------------------------------------- avisos
-function avisar(texto, tipo = "error") {
-  const aviso = $("aviso");
-  aviso.textContent = texto ?? "";
-  aviso.className = tipo;
-  aviso.hidden = !texto;
-}
-
-function avisarError(e) {
-  // Los errores de Firebase traen code ("auth/..."); los de la API, estado
-  avisar(e?.code ? sesion.mensajeError(e) : e?.message ?? String(e));
-}
-
-/** Ejecuta una acción con el botón desactivado, para que un doble clic no la repita. */
-async function conBoton(boton, accion) {
-  boton.disabled = true;
-  try {
-    await accion();
-  } catch (e) {
-    avisarError(e);
-  } finally {
-    boton.disabled = false;
-  }
 }
 
 // --------------------------------------------------------------------------- pantallas
@@ -45,14 +20,12 @@ function mostrar(pantalla) {   // "cargando", "entrada" o "perfil"
 function pintarCuenta(cuenta) {
   $("nombre").textContent = cuenta.es_invitado ? "Invitado" : cuenta.nombre_visible ?? "Tu cuenta";
   $("boton-pasar-a-google").hidden = !cuenta.es_invitado;
-  const { coleccion, deseo, descarte } = cuenta.juegos;
-  $("resumen").textContent =
-    `Colección: ${coleccion} · Lista de deseos: ${deseo} · Descartes: ${descarte}`;
 }
 
-/** Registra el inicio de sesión en la API y pinta la cuenta. */
+/** Registra el inicio de sesión en la API, pinta la cuenta y carga sus juegos. */
 async function cargarCuenta() {
   pintarCuenta(await api.post("/cuenta/sesion"));
+  await perfil.cargar();
   mostrar("perfil");
 }
 
@@ -92,7 +65,7 @@ sesion.alCambiarSesion(async (usuario) => {
   }
 });
 
-// --------------------------------------------------------------------------- botones
+// --------------------------------------------------------------------------- entrar
 // Al entrar no hace falta llamar a la API aquí: lo hace alCambiarSesion
 $("boton-google").addEventListener("click", (ev) =>
   conBoton(ev.currentTarget, async () => {
@@ -106,6 +79,7 @@ $("boton-invitado").addEventListener("click", (ev) =>
     await sesion.entrarComoInvitado();
   }));
 
+// --------------------------------------------------------------------------- cuenta
 $("boton-pasar-a-google").addEventListener("click", (ev) =>
   conBoton(ev.currentTarget, async () => {
     avisar(null);
@@ -137,4 +111,15 @@ $("boton-salir").addEventListener("click", (ev) =>
       await sesion.salir();
     }
     avisar(null);
+  }));
+
+$("boton-borrar-cuenta").addEventListener("click", (ev) =>
+  conBoton(ev.currentTarget, async () => {
+    if (!confirm("Se borrarán tu cuenta y todas tus listas de juegos. No se puede deshacer. " +
+                 "¿Borrar la cuenta?")) return;
+    // Primero se confirma la identidad (ventana de Google): si se cierra, no se borra nada
+    await sesion.confirmarIdentidad();
+    await api.borrar("/cuenta");
+    await sesion.borrarUsuario();
+    avisar("Tu cuenta y tus listas se han borrado.", "ok");
   }));

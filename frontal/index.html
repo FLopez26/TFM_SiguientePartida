@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Siguiente Partida</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
   <link rel="stylesheet" href="css/estilos.css">
   <script type="module" src="js/app.js"></script>
 </head>
@@ -32,10 +33,38 @@
         guárdala en tu cuenta de Google para no perderla.</p>
     </section>
 
-    <section id="perfil" hidden>
-      <h2>Tu perfil</h2>
-      <p id="resumen"></p>
-    </section>
+    <div id="perfil" hidden>
+      <section>
+        <h2>Añadir juegos</h2>
+        <form id="busqueda" role="search">
+          <input id="texto-busqueda" type="search" placeholder="Busca un juego por su nombre"
+                 autocomplete="off" minlength="2" maxlength="100" aria-label="Nombre del juego">
+          <button type="submit">Buscar</button>
+        </form>
+        <p id="sin-resultados" class="nota" hidden>No hay ningún juego con ese nombre.</p>
+        <ul id="resultados" class="juegos"></ul>
+      </section>
+
+      <section>
+        <h2>Para mí</h2>
+        <p class="nota">Recomendaciones a partir de tu colección. Los juegos de tu lista de deseos
+          y los descartes no cuentan y no se recomiendan.</p>
+        <button id="boton-para-mi" type="button">Recomiéndame juegos</button>
+        <p id="explicacion-para-mi" class="nota" hidden></p>
+        <ol id="recomendaciones" class="juegos"></ol>
+      </section>
+
+      <section>
+        <h2>Mis juegos</h2>
+        <div id="pestanas" class="botones"></div>
+        <p id="lista-vacia" class="nota" hidden></p>
+        <ul id="lista-juegos" class="juegos"></ul>
+      </section>
+
+      <section class="zona-cuenta">
+        <button id="boton-borrar-cuenta" type="button" class="peligro">Borrar mi cuenta</button>
+      </section>
+    </div>
   </main>
 </body>
 </html>

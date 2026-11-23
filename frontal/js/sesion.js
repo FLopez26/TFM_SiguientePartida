@@ -5,7 +5,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
 import {
   GoogleAuthProvider, deleteUser, getAuth, linkWithPopup, onAuthStateChanged,
-  signInAnonymously, signInWithCredential, signInWithPopup, signOut, updateProfile,
+  reauthenticateWithPopup, signInAnonymously, signInWithCredential, signInWithPopup, signOut,
+  updateProfile,
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import { firebaseConfig } from "/config.js";
 
@@ -75,6 +76,14 @@ export async function pasarAGoogle() {
 
 export async function salir() {
   await signOut(auth);
+}
+
+/** Antes de borrar una cuenta de Google: vuelve a pedir la cuenta en la ventana de Google. Así
+ *  Firebase deja borrar el usuario (pide haber entrado hace poco) y se confirma que es la persona.
+ *  Si cierra la ventana, lanza el error y no se borra nada. Los invitados no la necesitan. */
+export async function confirmarIdentidad() {
+  const usuario = auth.currentUser;
+  if (usuario && !usuario.isAnonymous) await reauthenticateWithPopup(usuario, proveedorGoogle());
 }
 
 /** Borra el usuario de Firebase (sus datos de MySQL los borra antes DELETE /cuenta). Si Firebase

@@ -50,3 +50,58 @@ button:disabled { opacity: 0.5; cursor: default; }
 #aviso { padding: 0.6rem 1rem; border-radius: 0.4rem; margin: 1rem 0; }
 #aviso.error { background: #fbeae7; color: var(--error); }
 #aviso.ok { background: #e6f2ee; color: var(--ok); }
+
+/* ---------------------------------------------------------------- perfil */
+section { margin: 2rem 0; }
+
+#busqueda { display: flex; gap: 0.5rem; max-width: 32rem; }
+#busqueda input {
+  flex: 1;
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cfc8bd;
+  border-radius: 0.4rem;
+}
+
+/* Listas de juegos: búsqueda, recomendaciones y las tres listas */
+.juegos { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 0.5rem; }
+.juegos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #e2ddd5;
+  border-radius: 0.5rem;
+}
+.ficha { display: flex; align-items: center; gap: 0.75rem; min-width: 14rem; flex: 1; }
+.ficha img, .sin-imagen {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: 0.3rem;
+  background: #eee9e1;
+  flex-shrink: 0;
+}
+.ficha .nombre { font-weight: 600; color: var(--texto); text-decoration: none; }
+.ficha a.nombre:hover { text-decoration: underline; }
+.anio { color: var(--suave); }
+.porque { margin: 0; color: var(--suave); font-size: 0.9rem; flex-basis: 100%; padding-left: 4.25rem; }
+
+.acciones { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.acciones button { padding: 0.3rem 0.7rem; font-size: 0.9rem; }
+.estado { font-size: 0.9rem; color: var(--acento); font-weight: 600; }
+.nota-juego { font-size: 0.9rem; color: var(--suave); }
+.nota-juego select { font: inherit; padding: 0.2rem; }
+
+/* Pestañas de las listas: la activa, rellena */
+.pestana[aria-pressed="true"] { background: var(--acento); color: white; }
+
+button.secundario { border-color: #cfc8bd; color: var(--suave); }
+button.secundario:hover:not(:disabled) { background: #eee9e1; color: var(--texto); }
+
+.zona-cuenta { border-top: 1px solid #e2ddd5; padding-top: 1rem; }
+button.peligro { border-color: var(--error); color: var(--error); }
+button.peligro:hover:not(:disabled) { background: var(--error); color: white; }
