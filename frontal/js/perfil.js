@@ -50,7 +50,7 @@ function anio(a) {
 }
 
 /** Imagen, nombre (enlace a BGG) y año. `juego` es null si ya no está en el catálogo. */
-function ficha(juego, bggId) {
+export function ficha(juego, bggId) {
   if (!juego) {
     return el("div", { className: "ficha" }, el("div", { className: "sin-imagen" }),
               el("span", { className: "nombre" }, `Juego ${bggId}`),
@@ -70,6 +70,25 @@ function botonesListas(bggId, menos, texto) {
   return Object.entries(LISTAS).filter(([lista]) => lista !== menos).map(([lista, t]) =>
     el("button", { type: "button", textContent: t[texto],
                    onclick: (ev) => conBoton(ev.currentTarget, () => guardar(bggId, lista)) }));
+}
+
+/** Botones para guardar un juego desde fuera del perfil (las fichas del chat). Al guardarlo, dicen
+ *  en qué lista ha quedado y dejan moverlo a las otras. */
+export function botonesGuardar(bggId) {
+  const caja = el("div", { className: "acciones" });
+  const pintar = () => {
+    const guardado = guardados.get(bggId);
+    caja.replaceChildren(
+      guardado ? el("span", { className: "estado" }, LISTAS[guardado.lista].estado) : "",
+      ...Object.entries(LISTAS).filter(([lista]) => lista !== guardado?.lista).map(([lista, t]) =>
+        el("button", { type: "button", textContent: t.guardar,
+                       onclick: (ev) => conBoton(ev.currentTarget, async () => {
+                         await guardar(bggId, lista);
+                         pintar();
+                       }) })));
+  };
+  pintar();
+  return caja;
 }
 
 function selectorNota(guardado) {

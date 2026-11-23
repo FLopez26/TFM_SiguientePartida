@@ -54,6 +54,24 @@
         <ol id="recomendaciones" class="juegos"></ol>
       </section>
 
+      <section id="chat">
+        <h2>Pregúntale al asistente</h2>
+        <p class="nota">Cuéntale con tus palabras qué buscas y te recomienda juegos del catálogo.
+          Tiene en cuenta tu colección, salvo que le digas que es para otra persona. Lo que
+          escribas se envía a Gemini (Google) para responder: no escribas datos personales.</p>
+        <p id="chat-no-disponible" class="nota" hidden>El chat no está disponible: falta
+          GEMINI_API_KEY en el .env de la API.</p>
+        <div id="chat-mensajes" aria-live="polite"></div>
+        <form id="chat-form">
+          <textarea id="chat-texto" rows="2" maxlength="2000" aria-label="Tu mensaje"
+                    placeholder="Por ejemplo: algo cooperativo para jugar en pareja, de menos de una hora"></textarea>
+          <div class="botones">
+            <button id="chat-enviar" type="submit">Enviar</button>
+            <button id="chat-nueva" type="button" class="secundario">Nueva conversación</button>
+          </div>
+        </form>
+      </section>
+
       <section>
         <h2>Mis juegos</h2>
         <div id="pestanas" class="botones"></div>

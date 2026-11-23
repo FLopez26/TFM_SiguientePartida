@@ -2,6 +2,7 @@
 // El perfil (búsqueda, listas y "para mí") está en perfil.js.
 
 import { api } from "./api.js";
+import * as chat from "./chat.js";
 import * as perfil from "./perfil.js";
 import * as sesion from "./sesion.js";
 import { $, avisar, avisarError, conBoton } from "./ui.js";
@@ -26,6 +27,7 @@ function pintarCuenta(cuenta) {
 async function cargarCuenta() {
   pintarCuenta(await api.post("/cuenta/sesion"));
   await perfil.cargar();
+  chat.reiniciar();
   mostrar("perfil");
 }
 
@@ -36,6 +38,7 @@ async function comprobarApi() {
   try {
     const respuesta = await fetch("/api/salud");
     const salud = await respuesta.json();
+    chat.disponible(salud.chat?.estado === "ok");
     if (salud.cuentas?.estado !== "ok") {
       avisar("La API no tiene configuradas las cuentas: falta FIREBASE_PROJECT_ID en .env.");
     } else if (!respuesta.ok) {
