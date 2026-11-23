@@ -238,6 +238,7 @@ def nodo_recuperar(estado: EstadoChat, runtime: Runtime[Contexto]) -> dict:
     if ctx.id_cuenta is not None and not i.para_otra_persona:
         coleccion, fuera = consultas_app.leer_perfil(c, ctx.id_cuenta)
     con_coleccion = bool(coleccion)
+    del_chat = {j.bgg_id for j in le_gustan} - coleccion.keys()
     for j in le_gustan:
         coleccion.setdefault(j.bgg_id, None)
     fuera |= {j.bgg_id for j in no_le_gustan}
@@ -257,7 +258,7 @@ def nodo_recuperar(estado: EstadoChat, runtime: Runtime[Contexto]) -> dict:
         con_coleccion=con_coleccion)
     return {"entendido": entendido, "resultado": resultado,
             "contexto": construir_contexto(entendido, resultado, fichas, consultados,
-                                           i.para_otra_persona)}
+                                           i.para_otra_persona, del_chat)}
 
 
 SYSTEM_PROMPT = """Eres el asistente de Siguiente Partida, una web que recomienda juegos de mesa \
@@ -274,8 +275,9 @@ conversación, con su nombre tal cual. Nunca inventes juegos ni datos (jugadores
 reglas, premios, precios).
 2. Presenta todas las recomendaciones del contexto, en el mismo orden y sin añadir otras: el \
 orden lo decide el recomendador.
-3. Justifica cada una con lo que ha pedido (jugadores, duración, complejidad, temática) y, si el \
-contexto lo indica, con el juego suyo con el que se relaciona.
+3. Justifica cada una con lo que ha pedido (jugadores, duración, complejidad, temática) y con \
+lo que la distingue según su ficha. Si el contexto la relaciona con un juego suyo, puedes \
+decirlo; si varias se relacionan con el mismo, dilo una sola vez al presentarlas, no en cada línea.
 4. Si el contexto dice que algún juego no está en el catálogo, díselo ("No lo tengo en el catálogo").
 5. Si ningún juego cumple lo pedido, dilo y propón relajar alguna condición.
 6. Si sabes poco de lo que busca, recomienda igualmente y termina con UNA pregunta corta sobre lo \
@@ -286,7 +288,8 @@ juegos de mesa.
 9. La complejidad va de 1 (muy sencillo) a 5 (muy complejo); la duración es la que indica la caja.
 
 ## Formato
-- En español, con un tono cercano y conciso.
+- En español, con un tono cercano y conciso. No empieces con un saludo salvo que la persona \
+salude.
 - Texto plano, sin Markdown (ni asteriscos ni almohadillas): la web lo muestra tal cual y enseña \
 debajo las fichas de los juegos recomendados.
 - Una línea por recomendación: "1. Nombre (año): por qué encaja", en una o dos frases.
@@ -338,7 +341,9 @@ def _texto_filtros(entendido: EntendidoChat) -> str:
 
 def construir_contexto(entendido: EntendidoChat, resultado: RespuestaRecomendaciones | None,
                        fichas: dict[int, FichaJuego | None], consultados: list[JuegoResumen],
-                       para_otra_persona: bool) -> str:
+                       para_otra_persona: bool, del_chat: set[int]) -> str:
+    """Texto que recibe Gemini. del_chat: juegos del perfil que ha nombrado en la conversación
+    (el resto del perfil sale de su colección guardada)."""
     lineas = [f"FILTROS APLICADOS: {_texto_filtros(entendido)}"]
     if entendido.le_gustan:
         lineas.append("JUEGOS QUE LE GUSTAN (en el catálogo): "
@@ -361,8 +366,12 @@ def construir_contexto(entendido: EntendidoChat, resultado: RespuestaRecomendaci
             lineas.append("\nRECOMENDACIONES (preséntalas todas, en este orden):")
         for r in resultado.recomendaciones:
             ficha = fichas.get(r.juego.bgg_id)
-            porque = (f"se parece a {_titulo(r.porque)}, uno de sus juegos" if r.porque
-                      else "sale por popularidad entre los que cumplen los filtros")
+            if r.porque is None:
+                porque = "sale por popularidad entre los que cumplen los filtros"
+            else:
+                origen = ("que ha dicho que le gusta" if r.porque.bgg_id in del_chat
+                          else "que está en su colección")
+                porque = f"relacionado con {_titulo(r.porque)}, {origen}"
             lineas.append(f"[{r.posicion}] {_titulo(r.juego)}\n"
                           + (describir_ficha(ficha) + "\n" if ficha else "")
                           + f"Por qué: {porque}")
