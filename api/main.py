@@ -18,7 +18,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from api import auth, bd, catalogo, cuentas, modelo, recomendaciones
+from api import auth, bd, catalogo, chat, cuentas, modelo, recomendaciones
 from api.config import ALIAS, LOGS, NOMBRE_REGISTRO, Ajustes, leer_ajustes
 from siguiente_partida import configurar_logging
 
@@ -62,10 +62,14 @@ def salud(request: Request) -> JSONResponse:
     estado_cuentas = ({"estado": "ok", "proyecto_firebase": ver.proyecto} if ver is not None
                       else {"estado": "sin configurar", "detalle": "falta FIREBASE_PROJECT_ID o "
                                                                    "no es válido: mira logs/api.log"})
+    # El chat tampoco: sin clave de Gemini sigue todo lo demás
+    llm = request.app.state.llm
+    estado_chat = ({"estado": "ok", "modelo_gemini": llm.model} if llm is not None
+                   else {"estado": "sin configurar", "detalle": "falta GEMINI_API_KEY"})
     ok = mysql["estado"] == "ok" and mod["estado"] == "ok"
     return JSONResponse(status_code=200 if ok else 503,
                         content={"estado": "ok" if ok else "error", "mysql": mysql, "modelo": mod,
-                                 "cuentas": estado_cuentas})
+                                 "cuentas": estado_cuentas, "chat": estado_chat})
 
 def preparar_cuentas(ajustes: Ajustes) -> auth.VerificadorFirebase | None:
     """Verificador de tokens de Firebase. Si falta el proyecto o no es válido, la API arranca
@@ -108,6 +112,7 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
         except Exception:
             log.exception("Modelo: error inesperado al cargarlo de MLflow")
         app.state.verificador = preparar_cuentas(ajustes)
+        app.state.llm = chat.preparar_llm(ajustes)
         yield
         app.state.motor.dispose()
         log.info("API: fin")
@@ -129,6 +134,7 @@ def crear_app(ajustes: Ajustes) -> FastAPI:
     app.include_router(recomendaciones.router)
     app.include_router(recomendaciones.router)
     app.include_router(cuentas.router)
+    app.include_router(chat.router)
     return app
 
 

@@ -210,3 +210,48 @@ class PeticionParaMi(BaseModel):
         {"filtros": {"jugadores": 2}, "k": 10}]})
     filtros: Filtros = Field(default_factory=Filtros)
     k: int = Field(default=10, ge=1, le=50, description="Cuántos juegos recomendar")
+
+
+
+# --------------------------------------------------------------------------- chat
+# El frontal guarda la conversación y la manda entera en cada turno: la API no la guarda.
+
+class MensajeChat(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rol: Literal["usuario", "asistente"]
+    texto: str = Field(min_length=1, max_length=2000)
+
+
+class PeticionChat(BaseModel):
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"mensajes": [
+        {"rol": "usuario", "texto": "Busco un juego para jugar en pareja que no dure más de "
+                                    "una hora"}]}]})
+    mensajes: list[MensajeChat] = Field(
+        min_length=1, max_length=20,
+        description="La conversación, de la más antigua a la última, que tiene que ser del "
+                    "usuario. A Gemini solo le llegan los últimos 10 mensajes")
+
+    @model_validator(mode="after")
+    def _ultimo_del_usuario(self) -> "PeticionChat":
+        if self.mensajes[-1].rol != "usuario":
+            raise ValueError("el último mensaje tiene que ser del usuario")
+        return self
+
+
+class EntendidoChat(BaseModel):
+    """Lo que la API ha sacado de la conversación, para enseñarlo ("He entendido: ...")."""
+    filtros: Filtros = Field(description="Los que se han aplicado al recomendador")
+    etiquetas: list[Etiqueta] = Field(description="Las de filtros.etiquetas, con su nombre")
+    le_gustan: list[JuegoResumen] = Field(description="Juegos nombrados que cuentan para el perfil")
+    no_le_gustan: list[JuegoResumen] = Field(description="Juegos nombrados que no se recomiendan")
+    no_encontrados: list[str] = Field(description="Juegos nombrados que no están en el catálogo")
+    con_coleccion: bool = Field(description="Si se ha usado la colección guardada de la cuenta")
+
+
+class RespuestaChat(BaseModel):
+    texto: str = Field(description="Respuesta del asistente, en texto plano")
+    recomendaciones: list[Recomendacion] = Field(
+        description="Las que presenta el texto, en el mismo orden; vacía si en este turno no se "
+                    "piden juegos")
+    entendido: EntendidoChat
+    modelo_version: str

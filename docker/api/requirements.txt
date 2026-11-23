@@ -12,3 +12,5 @@ cryptography==50.0.2
 pyjwt==2.15.1
 python-dotenv==1.2.4
 requests==2.34.2
+langgraph==1.2.24
+langchain-google-genai==4.5.2

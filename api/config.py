@@ -12,11 +12,14 @@ las pone docker-compose.yml, y load_dotenv no sobrescribe las que ya existen.
     API_PORT              8000
     FIREBASE_PROJECT_ID   id del proyecto de Firebase (no es secreto). Sin él la API arranca,
                           pero las rutas de /cuenta responden 503
+    GEMINI_API_KEY        clave de la API de Gemini (secreta). Sin ella la API arranca, pero
+                          POST /chat responde 503
+    GEMINI_MODELO         gemini-3.5-flash-lite, el del notebook del módulo de LLM
 """
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -30,6 +33,7 @@ LOGS = ROOT / "logs"
 NOMBRE_REGISTRO = "recomendador_juegos"
 ALIAS = "produccion"
 
+MODELO_GEMINI = "gemini-3.5-flash-lite"
 
 @dataclass(frozen=True)
 class Ajustes:
@@ -41,6 +45,8 @@ class Ajustes:
     host: str
     puerto: int
     firebase_proyecto: str | None = None
+    gemini_clave: str | None = field(default=None, repr=False)   # secreta: fuera del repr
+    gemini_modelo: str = MODELO_GEMINI
 
 
 def leer_ajustes() -> Ajustes:
@@ -57,4 +63,6 @@ def leer_ajustes() -> Ajustes:
         host=os.environ.get("API_HOST", "127.0.0.1"),
         puerto=int(os.environ.get("API_PORT", "8000")),
         firebase_proyecto=os.environ.get("FIREBASE_PROJECT_ID", "").strip() or None,
+        gemini_clave=os.environ.get("GEMINI_API_KEY", "").strip() or None,
+        gemini_modelo=os.environ.get("GEMINI_MODELO", "").strip() or MODELO_GEMINI,
     )

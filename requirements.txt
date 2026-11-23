@@ -19,3 +19,5 @@ uvicorn>=0.30
 sqlalchemy>=2.0
 httpx2>=2.0
 pyjwt>=2.10
+langgraph==1.2.24
+langchain-google-genai==4.5.2
