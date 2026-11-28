@@ -1,143 +1,598 @@
-:root {
-  --fondo: #faf8f5;
-  --texto: #2b2620;
-  --suave: #6d655c;
-  --acento: #1f6f5c;
-  --error: #a33a2c;
-  --ok: #1f6f5c;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--texto);
-  background: var(--fondo);
+/* Siguiente Partida: estilos de toda la web.
+   Letras: Alegreya para los títulos y Alegreya Sans para el resto, llamadas desde
+   frontal/fuentes (licencia OFL); si faltan, se usan Georgia y Segoe UI. */
+
+@font-face {
+  font-family: "Alegreya";
+  src: url("../fuentes/alegreya-latin-wght-normal.woff2") format("woff2");
+  font-weight: 400 900;
+  font-display: swap;
 }
+@font-face {
+  font-family: "Alegreya Sans";
+  src: url("../fuentes/alegreya-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Alegreya Sans";
+  src: url("../fuentes/alegreya-sans-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Alegreya Sans";
+  src: url("../fuentes/alegreya-sans-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --vino: #6e2233;          /* tapete: cabecera, títulos, botones normales */
+  --vino-oscuro: #4d1624;
+  --ambar: #e39b2f;         /* ficha de madera: botón principal, pantalla abierta del menú */
+  --ambar-oscuro: #cf8620;
+  --ambar-claro: #f6dcae;
+  --papel: #faf1e4;         /* fondo */
+  --carton: #f0e0c8;        /* superficies secundarias */
+  --blanco: #fffcf7;        /* fichas de juegos y cuadros */
+  --nogal: #3b2417;         /* texto */
+  --suave: #75604f;         /* texto secundario */
+  --linea: #e3d2ba;
+  --oliva: #55703a;         /* "en tu colección", avisos de hecho */
+  --canela: #9a5b2e;
+  --error: #a8322a;
+  --error-fondo: #fbe7e2;
+  --ok-fondo: #e8efdc;
+
+  --letra: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+  --letra-titulos: "Alegreya", Georgia, "Times New Roman", serif;
+  --radio: 0.75rem;
+  --radio-pequeno: 0.4rem;
+  --alto-barra: 3.5rem;
+
+  color-scheme: light;
+}
+
+/* Un elemento oculto se oculta aunque otra regla le ponga display */
+[hidden] { display: none !important; }
+
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-  max-width: 60rem;
-  margin: 0 auto;
-  padding: 1rem 1.5rem 3rem;
+  margin: 0;
+  background: var(--papel);
+  color: var(--nogal);
+  font: 400 1.125rem/1.5 var(--letra);
+  -webkit-font-smoothing: antialiased;
 }
 
-header {
+a { color: var(--vino); }
+img { max-width: 100%; }
+
+h1, h2 { font-family: var(--letra-titulos); color: var(--vino); }
+h1 { font-size: clamp(2rem, 4vw, 2.75rem); font-weight: 700; line-height: 1.1; margin: 0 0 0.5rem; }
+h2 { font-size: 1.5rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.75rem; }
+
+.entradilla { font-size: 1.25rem; max-width: 36em; margin: 0 0 1.5rem; }
+.nota { color: var(--suave); font-size: 1rem; max-width: 42em; }
+.bloque { margin: 2.5rem 0; }
+.botones { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; }
+
+/* Foco visible con el teclado; en fondo vino, en ámbar */
+:focus-visible { outline: 3px solid var(--vino); outline-offset: 2px; }
+.barra :focus-visible, .tapete :focus-visible { outline-color: var(--ambar); }
+[tabindex="-1"]:focus { outline: none; }
+
+.saltar { position: absolute; left: -999rem; }
+.saltar:focus {
+  left: 1rem; top: 0.5rem; z-index: 30;
+  padding: 0.5rem 1rem; border-radius: 999px;
+  background: var(--ambar); color: var(--nogal);
+}
+
+/* ------------------------------------------------------------------- botones y campos */
+button, .boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.15rem;
+  border: 1.5px solid var(--vino);
+  border-radius: 999px;
+  background: var(--blanco);
+  color: var(--vino);
+  font: 500 1rem/1.2 var(--letra);
+  text-decoration: none;
+  cursor: pointer;
+}
+button:hover:not(:disabled), .boton:hover { background: var(--vino); color: var(--papel); }
+button:disabled { opacity: 0.55; cursor: default; }
+
+button.principal, .boton.principal {
+  background: var(--ambar);
+  border-color: var(--ambar);
+  color: var(--nogal);
+  font-weight: 700;
+}
+button.principal:hover:not(:disabled), .boton.principal:hover {
+  background: var(--ambar-oscuro);
+  border-color: var(--ambar-oscuro);
+  color: var(--nogal);
+}
+
+button.grande { width: 100%; min-height: 3.25rem; font-size: 1.125rem; }
+
+button.secundario { background: transparent; border-color: var(--linea); color: var(--suave); }
+button.secundario:hover:not(:disabled) { background: var(--carton); color: var(--nogal); }
+
+button.peligro { border-color: var(--error); color: var(--error); }
+button.peligro:hover:not(:disabled) { background: var(--error); color: white; }
+
+input[type="search"], textarea, select {
+  font: inherit;
+  color: var(--nogal);
+  background: var(--blanco);
+  border: 1.5px solid var(--linea);
+  border-radius: var(--radio-pequeno);
+  padding: 0.55rem 0.85rem;
+}
+input[type="search"]:hover, textarea:hover, select:hover { border-color: #cdb898; }
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 3l10 10M13 3L3 13' stroke='%236e2233' stroke-width='2' stroke-linecap='round'/></svg>") center / contain no-repeat;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------- cargando */
+.cargando {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  font: 600 1.35rem var(--letra-titulos);
+  color: var(--vino);
+}
+
+/* ------------------------------------------------------------------- entrada */
+.entrada {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+.tapete {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.75rem;
+  padding: clamp(2rem, 6vw, 5rem);
+  background: var(--vino);
+  color: var(--papel);
+}
+
+.dados { width: clamp(7.5rem, 15vw, 11rem); overflow: visible; }
+.dado-rueda, .dado-quieto { transform-box: fill-box; transform-origin: center; }
+
+/* Lo único que se mueve solo en toda la web: el dado rueda una vez al abrir la entrada */
+.dado-rueda { animation: rodar 1s cubic-bezier(0.2, 0.75, 0.25, 1) both; }
+.dado-quieto { animation: aparecer 0.5s ease-out both; }
+@keyframes rodar {
+  0% { transform: translate(-90px, -50px) rotate(-260deg); opacity: 0; }
+  35% { opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes aparecer { from { opacity: 0; } }
+
+.marca-grande {
+  margin: 0;
+  font: 800 clamp(3.5rem, 8.5vw, 6.75rem)/0.92 var(--letra-titulos);
+  letter-spacing: -0.015em;
+}
+.marca-grande span { display: block; }
+.lema { margin: 0; max-width: 22em; font-size: 1.3rem; color: #f3dcc7; }
+
+.acceso {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 34rem;
+  padding: clamp(2rem, 5vw, 4rem);
+}
+.acceso h1 { margin-bottom: 2rem; font-size: clamp(2rem, 3.2vw, 2.5rem); }
+.opcion { margin: 0 0 1.75rem; }
+.opcion p { margin: 0.6rem 0 0; color: var(--suave); font-size: 1rem; }
+.letra-pequena {
+  margin: 0.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--linea);
+  color: var(--suave);
+  font-size: 0.95rem;
+}
+
+/* ------------------------------------------------------------------- cabecera y menú */
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
-  border-bottom: 1px solid #e2ddd5;
+  min-height: var(--alto-barra);
+  padding: 0.5rem clamp(1rem, 3vw, 2rem);
+  background: var(--vino);
+  color: var(--papel);
+}
+.marca { font: 700 1.5rem/1 var(--letra-titulos); color: var(--papel); text-decoration: none; white-space: nowrap; }
+
+.chip-cuenta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 16rem;
+  padding: 0.2rem 0.85rem 0.2rem 0.2rem;
+  border: 1px solid rgb(250 241 228 / 0.35);
+  border-radius: 999px;
+  color: var(--papel);
+  text-decoration: none;
+}
+.chip-cuenta:hover, .chip-cuenta[aria-current] { background: var(--vino-oscuro); }
+#chip-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inicial {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--ambar);
+  color: var(--nogal);
+  font-weight: 700;
 }
 
-h1 { font-size: 1.5rem; color: var(--acento); }
-h2 { font-size: 1.2rem; }
-
-#cuenta { display: flex; align-items: center; gap: 0.75rem; }
-#nombre { font-weight: 600; }
-
-.botones { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1rem 0; }
-
-button {
-  font: inherit;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--acento);
-  border-radius: 0.4rem;
-  background: white;
-  color: var(--acento);
-  cursor: pointer;
-}
-button:hover:not(:disabled) { background: var(--acento); color: white; }
-button:disabled { opacity: 0.5; cursor: default; }
-
-.nota { color: var(--suave); font-size: 0.9rem; max-width: 40rem; }
-
-#aviso { padding: 0.6rem 1rem; border-radius: 0.4rem; margin: 1rem 0; }
-#aviso.error { background: #fbeae7; color: var(--error); }
-#aviso.ok { background: #e6f2ee; color: var(--ok); }
-
-/* ---------------------------------------------------------------- perfil */
-section { margin: 2rem 0; }
-
-#busqueda { display: flex; gap: 0.5rem; max-width: 32rem; }
-#busqueda input {
-  flex: 1;
-  font: inherit;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #cfc8bd;
-  border-radius: 0.4rem;
+.cuerpo {
+  display: grid;
+  grid-template-columns: 14.5rem minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 2rem);
 }
 
-/* Listas de juegos: búsqueda, recomendaciones y las tres listas */
-.juegos { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: 0.5rem; }
-.juegos li {
+.menu {
+  position: sticky;
+  top: var(--alto-barra);
+  align-self: start;
+  padding: 2rem 0;
+}
+.menu ul { list-style: none; margin: 0 0 1.4rem; padding: 0; }
+.grupo-menu { margin: 0 0 0.3rem 0.75rem; color: var(--suave); font-size: 0.95rem; }
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radio-pequeno);
+  color: var(--nogal);
+  text-decoration: none;
+}
+/* Cada pantalla es una casilla vacía; en la abierta se pone la ficha de ámbar */
+.menu a::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid #cdb898;
+  border-radius: 50%;
+}
+.menu a:hover { background: var(--carton); }
+.menu a[aria-current="page"] {
+  background: var(--blanco);
+  box-shadow: inset 0 0 0 1px var(--linea);
+  color: var(--vino);
+  font-weight: 700;
+}
+.menu a[aria-current="page"]::before { background: var(--ambar); border-color: var(--vino); }
+
+.contenido { min-width: 0; padding: 2.25rem 0 4rem; }
+.contenido:focus { outline: none; }
+
+/* ------------------------------------------------------------------- inicio */
+.recordatorio {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
   flex-wrap: wrap;
-  padding: 0.5rem 0.75rem;
-  background: white;
-  border: 1px solid #e2ddd5;
-  border-radius: 0.5rem;
+  gap: 0.75rem 1.5rem;
+  margin: 0 0 1.75rem;
+  padding: 0.9rem 1rem 0.9rem 1.25rem;
+  border-radius: var(--radio);
+  background: var(--ambar-claro);
 }
-.ficha { display: flex; align-items: center; gap: 0.75rem; min-width: 14rem; flex: 1; }
+.recordatorio p { margin: 0; }
+
+.caminos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.caminos a {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 1rem;
+  row-gap: 0.15rem;
+  height: 100%;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--blanco);
+  color: var(--nogal);
+  text-decoration: none;
+}
+/* Una ficha de madera del color de cada camino, como los colores de los jugadores */
+.caminos a::before {
+  content: "";
+  grid-row: span 2;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--color-ficha);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.2);
+}
+.caminos strong { font: 700 1.35rem/1.2 var(--letra-titulos); color: var(--vino); }
+.caminos span { color: var(--suave); font-size: 1rem; }
+.caminos a:hover { border-color: var(--vino); }
+
+.caminos .destacado { grid-column: 1 / -1; }
+.caminos .destacado a { padding: 1.5rem; border-color: var(--vino); background: var(--vino); }
+.caminos .destacado a:hover { background: var(--vino-oscuro); }
+.caminos .destacado strong { color: var(--papel); font-size: 1.75rem; }
+.caminos .destacado span { color: #f3dcc7; font-size: 1.1rem; }
+.caminos .destacado a::before { width: 2rem; height: 2rem; }
+
+.color-ambar { --color-ficha: var(--ambar); }
+.color-vino { --color-ficha: var(--vino); }
+.color-oliva { --color-ficha: var(--oliva); }
+.color-canela { --color-ficha: var(--canela); }
+.color-madera { --color-ficha: #d9b98a; }
+
+.pendiente {
+  max-width: 36em;
+  padding: 1.25rem;
+  border: 2px dashed var(--linea);
+  border-radius: var(--radio);
+  color: var(--suave);
+}
+
+/* ------------------------------------------------------------------- listas de juegos */
+#busqueda { display: flex; gap: 0.5rem; max-width: 36rem; }
+#busqueda input { flex: 1; min-width: 0; min-height: 2.75rem; }
+
+/* Filas: búsqueda y las tres listas */
+.juegos { display: grid; gap: 0.5rem; margin: 1rem 0; padding: 0; list-style: none; }
+.juegos li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--blanco);
+}
+.ficha { display: flex; flex: 1; align-items: center; gap: 0.85rem; min-width: 14rem; }
 .ficha img, .sin-imagen {
-  width: 3.5rem;
-  height: 3.5rem;
-  object-fit: cover;
-  border-radius: 0.3rem;
-  background: #eee9e1;
   flex-shrink: 0;
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: var(--radio-pequeno);
+  background: var(--carton);
+  object-fit: contain;
 }
-.ficha .nombre { font-weight: 600; color: var(--texto); text-decoration: none; }
-.ficha a.nombre:hover { text-decoration: underline; }
+.ficha .nombre { color: var(--nogal); font-weight: 700; text-decoration: none; }
+.ficha a.nombre:hover { color: var(--vino); text-decoration: underline; }
 .anio { color: var(--suave); }
-.porque { margin: 0; color: var(--suave); font-size: 0.9rem; flex-basis: 100%; padding-left: 4.25rem; }
+.porque { flex-basis: 100%; margin: 0; padding-left: 4.6rem; color: var(--suave); font-size: 0.95rem; }
 
-.acciones { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.acciones button { padding: 0.3rem 0.7rem; font-size: 0.9rem; }
-.estado { font-size: 0.9rem; color: var(--acento); font-weight: 600; }
-.nota-juego { font-size: 0.9rem; color: var(--suave); }
-.nota-juego select { font: inherit; padding: 0.2rem; }
+.acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.acciones button { min-height: 2.4rem; padding: 0.3rem 0.85rem; font-size: 0.95rem; }
+.estado { color: var(--oliva); font-size: 0.95rem; font-weight: 700; }
+.nota-juego { color: var(--suave); font-size: 0.95rem; }
+.nota-juego select { padding: 0.3rem 0.4rem; }
 
-/* Pestañas de las listas: la activa, rellena */
-.pestana[aria-pressed="true"] { background: var(--acento); color: white; }
+/* Cajas: las recomendaciones (de "Para mí" y del asistente), con la portada grande y su puesto.
+   En pantallas estrechas se quedan en filas, como el resto de listas */
+@media (min-width: 40.01rem) {
+  .cajas, .mensaje .juegos {
+    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+    gap: 1rem;
+    counter-reset: puesto;
+  }
+  .cajas li, .mensaje .juegos li {
+    position: relative;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding: 0 0 1rem;
+    overflow: hidden;
+    counter-increment: puesto;
+  }
+  .cajas li::before, .mensaje .juegos li::before {
+    content: counter(puesto);
+    position: absolute;
+    top: 0.6rem;
+    left: 0.6rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--ambar);
+    box-shadow: 0 2px 0 var(--ambar-oscuro);
+    color: var(--nogal);
+    font: 700 1.05rem/2rem var(--letra-titulos);
+    text-align: center;
+  }
+  /* La ficha pasa a bloque para que el año siga al nombre en la misma línea */
+  .cajas .ficha, .mensaje .juegos .ficha { display: block; flex: none; min-width: 0; padding: 0 1rem; }
+  .cajas .ficha img, .cajas .sin-imagen, .mensaje .juegos .ficha img, .mensaje .juegos .sin-imagen {
+    display: block;
+    width: calc(100% + 2rem);
+    max-width: none;
+    height: auto;
+    aspect-ratio: 1;
+    margin: 0 -1rem 0.65rem;
+    border-radius: 0;
+  }
+  .cajas .ficha .nombre, .mensaje .juegos .ficha .nombre { font-size: 1.1rem; line-height: 1.25; }
+  .cajas .porque, .mensaje .juegos .porque { flex-basis: auto; padding: 0 1rem; }
+  .cajas .acciones, .mensaje .juegos .acciones { margin-top: auto; padding: 0.25rem 1rem 0; }
+  .cajas .acciones button, .mensaje .juegos .acciones button {
+    min-height: 2.2rem;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.9rem;
+  }
+}
 
-button.secundario { border-color: #cfc8bd; color: var(--suave); }
-button.secundario:hover:not(:disabled) { background: #eee9e1; color: var(--texto); }
+/* Pestañas de las listas: la abierta, en blanco sobre el cartón */
+.pestanas {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: var(--carton);
+}
+.pestana { border-color: transparent; background: transparent; color: var(--nogal); }
+.pestana:hover:not(:disabled) { background: var(--blanco); color: var(--vino); }
+.pestana[aria-pressed="true"] {
+  border-color: var(--linea);
+  background: var(--blanco);
+  color: var(--vino);
+  font-weight: 700;
+}
 
-.zona-cuenta { border-top: 1px solid #e2ddd5; padding-top: 1rem; }
-button.peligro { border-color: var(--error); color: var(--error); }
-button.peligro:hover:not(:disabled) { background: var(--error); color: white; }
-
-
-/* ---------------------------------------------------------------- chat */
+/* ------------------------------------------------------------------- asistente */
 #chat-mensajes {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  max-height: 36rem;
+  min-height: 16rem;
+  max-height: min(65vh, 42rem);
   overflow-y: auto;
-  padding: 0.75rem;
-  background: white;
-  border: 1px solid #e2ddd5;
-  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--blanco);
 }
-.mensaje { max-width: 85%; padding: 0.6rem 0.9rem; border-radius: 0.6rem; }
+.mensaje { max-width: 80%; padding: 0.7rem 1rem; border-radius: 1rem; }
 .mensaje .texto { margin: 0; white-space: pre-line; }   /* los saltos de línea de la respuesta */
-.mensaje.usuario { align-self: flex-end; background: var(--acento); color: white; }
-.mensaje.asistente { align-self: flex-start; background: #f1ede6; }
+.mensaje.usuario {
+  align-self: flex-end;
+  border-bottom-right-radius: 0.3rem;
+  background: var(--vino);
+  color: var(--papel);
+}
+.mensaje.asistente { align-self: flex-start; border-bottom-left-radius: 0.3rem; background: var(--carton); }
 .mensaje.con-fichas { align-self: stretch; max-width: none; }
 .mensaje.pensando { color: var(--suave); font-style: italic; }
-.mensaje.error { align-self: stretch; max-width: none; margin: 0; background: #fbeae7; color: var(--error); }
-.mensaje .juegos { margin-bottom: 0; }
-.entendido { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--suave); white-space: pre-line; }
+.mensaje.error { align-self: stretch; max-width: none; margin: 0; background: var(--error-fondo); color: var(--error); }
+.mensaje .juegos { margin-bottom: 0.25rem; }
+.entendido { margin: 0.5rem 0 0; color: var(--suave); font-size: 0.9rem; white-space: pre-line; }
 
 #chat-form textarea {
   display: block;
   width: 100%;
-  box-sizing: border-box;
   margin-top: 0.75rem;
-  font: inherit;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #cfc8bd;
-  border-radius: 0.4rem;
   resize: vertical;
 }
-#chat-form .botones { margin: 0.5rem 0 0; }
+#chat-form .botones { margin: 0.6rem 0 0; }
+
+/* ------------------------------------------------------------------- mi cuenta */
+.zona-peligro { padding-top: 1.5rem; border-top: 1px solid var(--linea); }
+.zona-peligro h2 { color: var(--error); }
+
+/* ------------------------------------------------------------------- avisos */
+.aviso {
+  position: fixed;
+  z-index: 20;
+  top: calc(var(--alto-barra) + 0.75rem);
+  right: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: min(30rem, calc(100vw - 2rem));
+  padding: 0.75rem 0.6rem 0.75rem 1.1rem;
+  border: 1px solid;
+  border-radius: var(--radio);
+  box-shadow: 0 8px 24px rgb(59 36 23 / 0.18);
+}
+#entrada:not([hidden]) ~ .aviso { top: 1rem; }
+.aviso p { flex: 1; margin: 0.35rem 0 0; }
+.aviso.error { border-color: #e6b3a8; background: var(--error-fondo); color: var(--error); }
+.aviso.ok { border-color: #c4d3ad; background: var(--ok-fondo); color: #3d5228; }
+#aviso-cerrar {
+  flex-shrink: 0;
+  width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+#aviso-cerrar:hover { background: rgb(0 0 0 / 0.06); }
+
+/* ------------------------------------------------------------------- pantallas estrechas */
+@media (max-width: 52rem) {
+  .entrada { grid-template-columns: 1fr; }
+  .tapete { gap: 1.25rem; padding-block: 2.5rem; }
+  .acceso { max-width: none; }
+
+  /* El menú pasa a una tira debajo de la cabecera que se desliza de lado */
+  .cuerpo { grid-template-columns: 1fr; gap: 0; padding: 0; }
+  .menu {
+    z-index: 5;
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--linea);
+    background: var(--papel);
+    scrollbar-width: none;
+  }
+  .menu ul { display: flex; gap: 0.25rem; margin: 0; }
+  .grupo-menu { display: none; }
+  .menu a { min-height: 2.5rem; border-radius: 999px; white-space: nowrap; }
+  .contenido { padding: 1.75rem 1rem 3rem; }
+  .aviso { top: calc(var(--alto-barra) + 4rem); }
+}
+
+@media (max-width: 40rem) {
+  .marca { font-size: 1.3rem; }
+  #chip-nombre { display: none; }
+  .chip-cuenta { padding: 0.2rem; }
+  .caminos { grid-template-columns: 1fr; }
+  .mensaje { max-width: 92%; }
+  .porque { padding-left: 0; }
+  .pestanas { display: flex; flex-wrap: nowrap; overflow-x: auto; border-radius: var(--radio); scrollbar-width: none; }
+  .pestana { flex: 1 0 auto; padding-inline: 0.75rem; white-space: nowrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dado-rueda, .dado-quieto { animation: none; }
+}

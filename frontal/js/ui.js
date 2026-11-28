@@ -1,4 +1,4 @@
-// Utilidades de la página que usan app.js y perfil.js: avisos, botones y creación de elementos.
+// Utilidades de la página que usan los demás módulos: avisos, botones y creación de elementos.
 
 import { mensajeError } from "./sesion.js";
 
@@ -20,11 +20,19 @@ export function el(etiqueta, props = {}, ...hijos) {
   return nodo;
 }
 
+// --------------------------------------------------------------------------- avisos
+// Un solo aviso flotante para toda la web. Los de "hecho" (tipo "ok") se van solos; los errores
+// se quedan hasta que se cierran, se pulsa Escape o empieza otra acción (avisar(null)).
+const SEGUNDOS_OK = 6;
+let ocultar;
+
 export function avisar(texto, tipo = "error") {
   const aviso = $("aviso");
-  aviso.textContent = texto ?? "";
-  aviso.className = tipo;
+  clearTimeout(ocultar);
+  $("aviso-texto").textContent = texto ?? "";
+  aviso.className = `aviso ${tipo}`;
   aviso.hidden = !texto;
+  if (texto && tipo === "ok") ocultar = setTimeout(() => { aviso.hidden = true; }, SEGUNDOS_OK * 1000);
 }
 
 export function avisarError(e) {
@@ -32,8 +40,13 @@ export function avisarError(e) {
   avisar(e?.code ? mensajeError(e) : e?.message ?? String(e));
 }
 
+$("aviso-cerrar").addEventListener("click", () => avisar(null));
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && !$("aviso").hidden) avisar(null);
+});
+
 /** Ejecuta una acción con el botón desactivado, para que un doble clic no la repita. Los errores
- *  se muestran en el aviso de arriba. */
+ *  se muestran en el aviso. */
 export async function conBoton(boton, accion) {
   boton.disabled = true;
   try {
